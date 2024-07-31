@@ -17,7 +17,7 @@ package:
 # "chatHandler" is the name of the exported function in src/chat.ts file
 functions:
   websocketHandler:
-    handler: src/chat.chatHandler
+    handler: dist/chat.chatHandler
     events: # events that will trigger websocketHandler Lambda function
       - websocket:
           route: $connect # Triggered when a WebSocket client connects.

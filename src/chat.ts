@@ -14,6 +14,7 @@ const responseForbidden = {
 
 export const chatHandler = async (event: APIGatewayProxyEvent) => {
   console.log("event:", event);
+  console.log("event.pathParameters:", event.pathParameters);
   const connectionId = event.requestContext.connectionId as string;
   const routeKey = event.requestContext.routeKey as Action;
 
