@@ -1,13 +1,16 @@
 # This service name is used by Serverless Framework to create and manage AWS resources. 
 service: worko-chat-api
 
-frameworkVersion: "4"
-
-
 provider:
   name: aws # The cloud provider
   runtime: nodejs14.x # runtime environment for your Lambda functions. 
-  region: us-south-1 # AWS region where your Lambda function will be deployed
+  region: ap-south-1 # AWS region where your Lambda function will be deployed
+
+plugins:
+  - serverless-offline # This plugin allows you to run your Serverless application locally for development and testing. It simulates AWS API Gateway and Lambda on your local machine.
+
+package:
+  individually: true
 
 # "websocketHandler" is the name of the Lambda function which will be create on aws
 # "src/chat" is the path of the handler file
@@ -29,6 +32,3 @@ functions:
       - websocket:
           route: deleteMessage #(@todo, like delete all messages or particular message):- Custom route for deleting a particular message
 
-plugins:
-  - serverless-plugin-typescript # This plugin allows you to use TypeScript with Serverless Framework. It compiles TypeScript files into JavaScript during deployment.
-  - serverless-offline # This plugin allows you to run your Serverless application locally for development and testing. It simulates AWS API Gateway and Lambda on your local machine.

@@ -7,11 +7,6 @@ import {
 import { Action } from "./dtos/RouteKeyActions.dto";
 import { handlerObj } from "./webSocketHandlers/handlers";
 
-const responseOK = {
-  statusCode: 200,
-  body: "",
-};
-
 const responseForbidden = {
   statusCode: 403,
   body: "",

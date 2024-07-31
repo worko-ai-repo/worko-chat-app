@@ -20,11 +20,6 @@ serverless --version
 npm install --save-dev serverless
 ```
 
-->TypeScript plugin to work with TypeScript in your Serverless project.
-```sh
-npm install --save-dev serverless-plugin-typescript --legacy-peer-deps
-```
-
 ```sh
 npm install aws-lambda
 ```
@@ -34,7 +29,7 @@ npm install @types/aws-lambda
 ```
 
 ```sh
-npm install --save-dev serverless-offline --legacy-peer-deps
+npm install --save-dev serverless-offline 
 ```
 
 ```sh
@@ -42,15 +37,15 @@ npm install -g wscat
 ```
 
 ```sh
- npm install ws --legacy-peer-deps
+ npm install ws 
 ```
 
 ```sh
-npm install --save-dev @types/ws --legacy-peer-deps
+npm install --save-dev @types/ws 
 ```
 
 ```sh
- npm install @aws-sdk/client-apigatewaymanagementapi --legacy-peer-deps
+ npm install @aws-sdk/client-apigatewaymanagementapi 
 ```
 
 # Entry-Level Websocket API Gateway with Serverless Framework
