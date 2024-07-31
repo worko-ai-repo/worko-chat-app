@@ -1,28 +1,51 @@
-# worko-chat-app
-* Add a brief paragraph or two that summarizes the purpose and function of this repository.
-* You could add relevant links for the consumers of this repository.
-
-## Usage
-* Define the purpose of the repository if this is going to be a tool, utility, library or a service.
-* Provide the instructions on how to consume this repository for the consumers.
-
-## Get Started
-* Provide instructions on how to setup and use this repository for local machine development and testing.
-
-## Prerequisites
-* Provide list of recommended modules and steps on how to install them.
-
-```
-Setup examples:
-...
+```sh
+npm init -y
 ```
 
-## Install
-* Provide step-by-step guide on how to get the development environment running.
-* Provide test examples so as to perform a small demo.
+```sh
+npm install express dotenv 
+```
 
-## Testing
-* Provide commands and configuration details on how to test the repository.
+```sh
+npm i --save-dev typescript @types/express @types/node
+```
 
-## Contact
-* Provide contact details on how to contact the owners managing this repository.
+```sh
+npx tsc --init
+```
+
+# manually transpile the code
+```sh
+npx tsc
+```
+
+# manually run transpiled code
+```sh
+node ./dist/app.js
+```
+
+# add below line in package.json scripts object
+```sh
+"dev":"npx tsc && node dist/app.js",
+```
+
+```sh
+npm run dev
+```
+
+# install the Dynamoose library and AWS SDK
+```sh
+npm install dynamoose aws-sdk
+```
+
+```sh
+npm install --save-dev @types/aws-sdk
+```
+
+```sh
+npm install @aws-sdk/client-dynamodb @aws-sdk/lib-dynamodb
+```
+
+```sh
+npm install joi
+```
