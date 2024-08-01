@@ -183,7 +183,8 @@ class Handlers {
         ConnectionId: connectionId,
         Data: messageBody,
       });// create the post command
-      await apigw.send(postToConnectionCommand);// post the message to the connection
+      const postToConnectionCommandResponse =await apigw.send(postToConnectionCommand);// post the message to the connection
+      console.log("postToConnectionCommandResponse in postToTheConnection:", postToConnectionCommandResponse);
       return true;
     } catch (error) {
       if (this.isConnectionNotExistError(error)) {
@@ -220,27 +221,11 @@ class Handlers {
       return responseForbidden; // @todo discuss with project lead:- implement error handling like given queryStringParameters is not valid
     }
 
-    // START- DISCUSS WITH PROJECT LEAD:- Check if connectionId already exists like it is running on the web browser and exists in database
-    const existingConnectionId = await clientDaoObj.getClientByConnectionId(
-      connectionId
-    );
-    console.log("existingConnectionId in handleConnect:", existingConnectionId);
-
-    if (
-      existingConnectionId.count>0 &&
-      (await this.postToTheConnection(
-        connectionId,
-        JSON.stringify({ type: "ping" }) // check if client is online by sending a ping message like knocking on a door
-      ))
-    ) {
-      console.log("existingConnectionId is already connected in handleConnect:", existingConnectionId);
-      return responseForbidden; // @todo discuss with project lead:- implement error handling like given connectionId is already connected
-    }
-    // END- DISCUSS WITH PROJECT LEAD:- Check if connectionId already exists like it is running on the web browser and exists in database
-
     // get userId from queryStringParameters
     const userId = queryStringParameters["userId"] as string;
     console.log("userId in handleConnect:", userId);
+
+    // @todo: DISCUSS WITH PROJECT LEAD:- Check if user with connectionId already exists, like it is running on the web browser and exists in database and if exists dont create a new client connectionId with same userId
 
     // create a new client
     await clientDaoObj.createClient(connectionId, userId);
@@ -252,12 +237,15 @@ class Handlers {
 
   async handleDisconnect(connectionId: string) {
     console.log("handleDisconnect in [handler]");
-
+    /*
+    Refer Below docs for how to delete Item in dynamodb using dynamoose:-
+    https://dynamoosejs.com/guide/Item#itemdeletecallback
+    */
     const retrivedClient = await this.checkClientExists(connectionId);
 
     await clientDaoObj.deleteClientByConnectionId(retrivedClient);
 
-    // @todo: implement functionality:- for chatting friend that this person is offline/disconnected
+    // @todo: implement functionality:- for chatting candidate/employee that this person is offline/disconnected
 
     return responseOK;
   }
@@ -265,10 +253,16 @@ class Handlers {
   async handleGetClients(connectionId: string) {
     console.log("handleGetClients in [handler]");
     const { chatMembers } = await this.retrieveChatMembers(connectionId);
+    console.log("chatMembers in handleGetClients:", chatMembers);
 
     // return all chat clients/members associated with this userId
-    await this.postToTheConnection(connectionId, JSON.stringify(chatMembers));
+    const isChatMembersSent =await this.postToTheConnection(connectionId, JSON.stringify(chatMembers));
 
+    console.log("isChatMembersSent in handleGetClients:", isChatMembersSent);
+
+    if (!isChatMembersSent) {
+      return responseForbidden;
+    }
     return responseOK;
   }
 
@@ -300,9 +294,7 @@ class Handlers {
     console.log("receiverId:", receiverId);
 
     // retrieve the reciever's connectionId using reciever's userId
-    const recieverClient = await clientDaoObj.getClientByConnectionId(
-      receiverId
-    );
+    const recieverClient = await clientDaoObj.getClientByUserId(receiverId);
 
     // if client record is not found, return responseForbidden
     if (!recieverClient.count || recieverClient.count === 0) {
@@ -345,8 +337,13 @@ class Handlers {
     const messages = await this.getMessagesByChatId(chatId);
     console.log("messages:", messages);
 
-    await this.postToTheConnection(connectionId, JSON.stringify(messages));
+    const isMessagesRetrieved =await this.postToTheConnection(connectionId, JSON.stringify(messages));
 
+    console.log("isMessagesRetrieved:", isMessagesRetrieved);
+
+    if (!isMessagesRetrieved) {
+      return responseForbidden;
+    }
     return responseOK;
   }
 }

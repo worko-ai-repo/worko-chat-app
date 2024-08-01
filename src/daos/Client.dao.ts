@@ -3,14 +3,24 @@ import { QueryResponse } from "dynamoose/dist/ItemRetriever";
 
 // load models
 import { ClientModel, DbClientDto } from "../db/models/Client.model";
-import { APIGatewayProxyEventPathParameters } from "aws-lambda";
 
 class ClientDao {
   ModelName = "Client";
   partitionKey = "CLT#";
   sortKey = "ID#{connectionId}";
-  // GSI1PK = "";
-  // GSI1SK = "";
+  GSI1PK = "CLT#USR#";
+  GSI1SK = "ID#{userId}";
+
+  async getClientByUserId(userId: string){
+    console.log("getClientByUserId in [dao]");
+    
+    const GSI1SK = this.GSI1SK.replace("{userId}", userId);
+    return ClientModel.query("GSI1PK")
+      .eq(this.GSI1PK)
+      .where("GSI1SK")
+      .eq(GSI1SK)
+      .exec();
+  }
 
   /**
    * getClientByConnectionId
@@ -63,6 +73,8 @@ class ClientDao {
     return ClientModel.create({
       PK: this.partitionKey,
       SK: this.sortKey.replace("{connectionId}", connectionId),
+      GSI1PK: this.GSI1PK,
+      GSI1SK: this.GSI1SK.replace("{userId}", userId),
       connectionId,
       userId,
     });
