@@ -8,3 +8,11 @@ npm run deploy-offline
 ```sh
 npm run dev
 ```
+
+```sh
+npm install -g wscat
+```
+
+```sh
+ wscat -c "ws://localhost:3001?userId=01J3QYX3V8CGD4SAC0FWFCQ8C5"
+```

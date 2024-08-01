@@ -1,7 +1,10 @@
 
 // load aws related modules,types
-import { APIGatewayProxyEventPathParameters } from "aws-lambda";
+import {  APIGatewayProxyEventQueryStringParameters } from "aws-lambda";
 import AWS, { AWSError } from "aws-sdk";
+
+import dotenv from "dotenv";
+dotenv.config();
 
 // load dynamoose library
 import { QueryResponse } from "dynamoose/dist/ItemRetriever";
@@ -23,6 +26,9 @@ import { DbChatDto } from "../db/models/Chat.model";
 const apigw = new AWS.ApiGatewayManagementApi({
   endpoint: process.env.WSSAPIGATEWAYENDPOINT,
 });
+
+console.log("process.env.WSSAPIGATEWAYENDPOINT:", process.env.WSSAPIGATEWAYENDPOINT);
+console.log("apigw:", apigw);
 
 const responseOK = {
   statusCode: 200,
@@ -49,7 +55,7 @@ class Handlers {
 
   async getMessagesByChatId(chatId: string) {
     const messages = await messageDaoObj.getMessagesByChatId(chatId);
-    if (!messages) {
+    if (messages.count===0) {
       return [];
     }
     const messagesWithUser = await Promise.all(
@@ -177,6 +183,7 @@ class Handlers {
 
         return false;
       } else {
+        console.log("postToTheConnection else part error");
         throw error;
       }
     }
@@ -184,18 +191,17 @@ class Handlers {
 
   async handleConnect(
     connectionId: string,
-    pathParameters: APIGatewayProxyEventPathParameters | null
+    queryStringParameters: APIGatewayProxyEventQueryStringParameters | null
   ) {
     console.log("handleConnect in [handler]");
-
+    console.log("queryStringParameters:", queryStringParameters);
     console.log("connectionId:", connectionId);
-    console.log("pathParameters:", pathParameters);
 
     // Check if pathParameters exists, contains userId key and is a string
     if (
-      !pathParameters ||
-      !pathParameters["userId"] ||
-      typeof pathParameters["userId"] !== "string"
+      !queryStringParameters ||
+      !queryStringParameters["userId"] ||
+      typeof queryStringParameters["userId"] !== "string"
     ) {
       return responseForbidden;
     }
@@ -204,8 +210,10 @@ class Handlers {
     const existingConnectionId = await clientDaoObj.getClientByConnectionId(
       connectionId
     );
+    console.log("existingConnectionId:", existingConnectionId);
+
     if (
-      existingConnectionId &&
+      existingConnectionId.count>0 &&
       (await this.postToTheConnection(
         connectionId,
         JSON.stringify({ type: "ping" })
@@ -215,7 +223,7 @@ class Handlers {
     }
     // END DISCUSS WITH PROJECT LEAD:- Check if connectionId already exists like it is running on the web browser and exists in database
 
-    const userId = pathParameters["userId"] as string;
+    const userId = queryStringParameters["userId"] as string;
     console.log("userId:", userId);
 
     // create a new client
@@ -300,7 +308,7 @@ class Handlers {
 
   async handleGetMessages(
     connectionId: string,
-    pathParameters: APIGatewayProxyEventPathParameters | null
+    queryStringParameters: APIGatewayProxyEventQueryStringParameters | null
   ) {
     console.log("handleGetMessages in [handler]");
 
@@ -308,14 +316,14 @@ class Handlers {
 
     // Check if pathParameters exists, contains chatId key and is a string
     if (
-      !pathParameters ||
-      !pathParameters["chatId"] ||
-      typeof pathParameters["chatId"] !== "string"
+      !queryStringParameters ||
+      !queryStringParameters["chatId"] ||
+      typeof queryStringParameters["chatId"] !== "string"
     ) {
       return responseForbidden;
     }
 
-    const chatId = pathParameters["chatId"] as string;
+    const chatId = queryStringParameters["chatId"] as string;
     console.log("chatId:", chatId);
 
     const messages = await this.getMessagesByChatId(chatId);
@@ -323,7 +331,7 @@ class Handlers {
 
     await this.postToTheConnection(connectionId, JSON.stringify(messages));
 
-    return responseOK; 
+    return responseOK;
   }
 }
 
