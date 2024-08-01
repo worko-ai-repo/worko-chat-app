@@ -4,7 +4,11 @@ import "./configs/dbConfig";
 import {
   APIGatewayProxyEvent,
 } from "aws-lambda";
+
+// load dtos
 import { Action } from "./dtos/RouteKeyActions.dto";
+
+// load handlers
 import { handlerObj } from "./webSocketHandlers/handlers";
 
 const responseForbidden = {
@@ -31,6 +35,6 @@ export const chatHandler = async (event: APIGatewayProxyEvent) => {
     case "getMessages":
       return handlerObj.handleGetMessages(connectionId, event.queryStringParameters);
     default:
-      return responseForbidden;
+      return responseForbidden; // @todo discuss with project lead:- implement error handling like not found route 
   }
 };

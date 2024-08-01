@@ -22,13 +22,15 @@ import { userDaoObj } from "../daos/User.dao";
 import { DbClientDto } from "../db/models/Client.model";
 import { DbChatDto } from "../db/models/Chat.model";
 
-
+console.log(
+  "process.env.WSSAPIGATEWAYENDPOINT:",
+  process.env.WSSAPIGATEWAYENDPOINT
+);
 const apigw = new AWS.ApiGatewayManagementApi({
   endpoint: process.env.WSSAPIGATEWAYENDPOINT,
 });
-
-console.log("process.env.WSSAPIGATEWAYENDPOINT:", process.env.WSSAPIGATEWAYENDPOINT);
 console.log("apigw:", apigw);
+
 
 const responseOK = {
   statusCode: 200,
@@ -167,6 +169,7 @@ class Handlers {
     messageBody: string
   ): Promise<boolean> {
     console.log("postToTheConnection in [handler]");
+    console.log("apigw in postToTheConnection:", apigw);
     try {
       await apigw
         .postToConnection({
@@ -194,42 +197,48 @@ class Handlers {
     queryStringParameters: APIGatewayProxyEventQueryStringParameters | null
   ) {
     console.log("handleConnect in [handler]");
-    console.log("queryStringParameters:", queryStringParameters);
-    console.log("connectionId:", connectionId);
+    console.log(
+      "queryStringParameters in handleConnect:",
+      queryStringParameters
+    );
+    console.log("connectionId in handleConnect:", connectionId);
 
-    // Check if pathParameters exists, contains userId key and is a string
+    // Check if queryStringParameters exists, contains userId key and is a string
     if (
-      !queryStringParameters ||
-      !queryStringParameters["userId"] ||
+      !queryStringParameters || 
+      !queryStringParameters["userId"] || 
       typeof queryStringParameters["userId"] !== "string"
     ) {
-      return responseForbidden;
+      console.log("queryStringParameters is not valid in handleConnect:", queryStringParameters);
+      return responseForbidden; // @todo discuss with project lead:- implement error handling like given queryStringParameters is not valid
     }
 
-    // START DISCUSS WITH PROJECT LEAD:- Check if connectionId already exists like it is running on the web browser and exists in database
+    // START- DISCUSS WITH PROJECT LEAD:- Check if connectionId already exists like it is running on the web browser and exists in database
     const existingConnectionId = await clientDaoObj.getClientByConnectionId(
       connectionId
     );
-    console.log("existingConnectionId:", existingConnectionId);
+    console.log("existingConnectionId in handleConnect:", existingConnectionId);
 
     if (
       existingConnectionId.count>0 &&
       (await this.postToTheConnection(
         connectionId,
-        JSON.stringify({ type: "ping" })
+        JSON.stringify({ type: "ping" }) // check if client is online by sending a ping message like knocking on a door
       ))
     ) {
-      return responseForbidden;
+      console.log("existingConnectionId is already connected in handleConnect:", existingConnectionId);
+      return responseForbidden; // @todo discuss with project lead:- implement error handling like given connectionId is already connected
     }
-    // END DISCUSS WITH PROJECT LEAD:- Check if connectionId already exists like it is running on the web browser and exists in database
+    // END- DISCUSS WITH PROJECT LEAD:- Check if connectionId already exists like it is running on the web browser and exists in database
 
+    // get userId from queryStringParameters
     const userId = queryStringParameters["userId"] as string;
-    console.log("userId:", userId);
+    console.log("userId in handleConnect:", userId);
 
     // create a new client
     await clientDaoObj.createClient(connectionId, userId);
 
-    // @todo: implement functionality:- for chatting friend that this person is online/connected
+    // @todo: implement functionality:- for already websocket connected employee/candidate that this person is online/connected
 
     return responseOK;
   }
