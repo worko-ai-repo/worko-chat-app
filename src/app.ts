@@ -9,7 +9,7 @@ import "./configs/dbConfig";
 import router from "./router";
 
 // Use CORS middleware
-// app.use(cors());
+// app.use(cors( ));
 
 // Middleware to parse JSON bodies
 app.use(express.json());

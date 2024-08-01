@@ -4,7 +4,6 @@ service: worko-chat-api
 provider:
   name: aws # The cloud provider
   runtime: nodejs14.x # runtime environment for your Lambda functions. 
-  region: ap-south-1 # AWS region where your Lambda function will be deployed
 
 plugins:
   - serverless-offline # This plugin allows you to run your Serverless application locally for development and testing. It simulates AWS API Gateway and Lambda on your local machine.

@@ -1,7 +1,13 @@
 
 // load aws related modules,types
 import {  APIGatewayProxyEventQueryStringParameters } from "aws-lambda";
-import AWS, { AWSError } from "aws-sdk";
+
+import {
+  ApiGatewayManagementApiClient,
+  PostToConnectionCommand,
+} from "@aws-sdk/client-apigatewaymanagementapi";
+
+import { AWSError } from "aws-sdk";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -26,7 +32,9 @@ console.log(
   "process.env.WSSAPIGATEWAYENDPOINT:",
   process.env.WSSAPIGATEWAYENDPOINT
 );
-const apigw = new AWS.ApiGatewayManagementApi({
+console.log("process.env.APP_SLS_REGION:", process.env.APP_SLS_REGION);
+const apigw = new ApiGatewayManagementApiClient({
+  region: process.env.APP_SLS_REGION,
   endpoint: process.env.WSSAPIGATEWAYENDPOINT,
 });
 console.log("apigw:", apigw);
@@ -171,12 +179,11 @@ class Handlers {
     console.log("postToTheConnection in [handler]");
     console.log("apigw in postToTheConnection:", apigw);
     try {
-      await apigw
-        .postToConnection({
-          ConnectionId: connectionId,
-          Data: messageBody, // type of "Data" is "string", in frontend it should be parsed
-        })
-        .promise();
+      const postToConnectionCommand = new PostToConnectionCommand({
+        ConnectionId: connectionId,
+        Data: messageBody,
+      });// create the post command
+      await apigw.send(postToConnectionCommand);// post the message to the connection
       return true;
     } catch (error) {
       if (this.isConnectionNotExistError(error)) {
