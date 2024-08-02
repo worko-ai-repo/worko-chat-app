@@ -1,6 +1,5 @@
-
 // load aws related modules,types
-import {  APIGatewayProxyEventQueryStringParameters } from "aws-lambda";
+import { APIGatewayProxyEventQueryStringParameters } from "aws-lambda";
 
 import {
   ApiGatewayManagementApiClient,
@@ -27,6 +26,9 @@ import { userDaoObj } from "../daos/User.dao";
 // load models
 import { DbClientDto } from "../db/models/Client.model";
 import { DbChatDto } from "../db/models/Chat.model";
+import { RouteKey } from "../enums/RouteKey.enum";
+import { ConnectEventDto } from "../dtos/Connect.dto";
+import { GetMessagesDto } from "../dtos/GetMessages.dto";
 
 console.log(
   "process.env.WSSAPIGATEWAYENDPOINT:",
@@ -38,7 +40,6 @@ const apigw = new ApiGatewayManagementApiClient({
   endpoint: process.env.WSSAPIGATEWAYENDPOINT,
 });
 console.log("apigw:", apigw);
-
 
 const responseOK = {
   statusCode: 200,
@@ -65,7 +66,7 @@ class Handlers {
 
   async getMessagesByChatId(chatId: string) {
     const messages = await messageDaoObj.getMessagesByChatId(chatId);
-    if (messages.count===0) {
+    if (messages.count === 0) {
       return [];
     }
     const messagesWithUser = await Promise.all(
@@ -123,9 +124,10 @@ class Handlers {
     // Filter chats based on userId and exclude the given userId from members
     const filteredChatsExceptionUserId = filteredChats.map(
       (chat: DbChatDto) => {
+        const members = chat.members.filter((memberId) => memberId !== userId);
         return {
           ...chat,
-          members: chat.members.filter((memberId) => memberId !== userId),
+          colleagueUserId: members[0],
         };
       }
     );
@@ -133,11 +135,14 @@ class Handlers {
       filteredChatsExceptionUserId,
       "filteredChatsExceptionUserId in getChatRecordsByUserId"
     );
-    if (filteredChatsExceptionUserId.length === 0) {
-      return [];
-    }
+    const colleagueUserIdWithDetails = await Promise.all(
+      filteredChatsExceptionUserId.map(async (chat) => {
+        const user = await userDaoObj.getUserById(chat.colleagueUserId);
+        return { ...chat, name: user[0].name, email: user[0].email };
+      })
+    );
 
-    return filteredChatsExceptionUserId;
+    return colleagueUserIdWithDetails;
   }
 
   async retrieveChatMembers(connectionId: string) {
@@ -148,21 +153,6 @@ class Handlers {
     const userId = retrivedClient.userId;
     const chatMembers = await this.getChatRecordsByUserId(userId);
     return { chatMembers, userId };
-  }
-
-  parseSendMessageBody(sendMessageBody: string | null): NewMessageDto {
-    console.log("parseSendMessageBody in [handler]");
-    const sendMsgBody = JSON.parse(sendMessageBody || "{}") as NewMessageDto;
-
-    if (
-      !sendMsgBody ||
-      !sendMsgBody.text ||
-      !sendMsgBody.chatId ||
-      !sendMsgBody.senderId
-    ) {
-      throw new Error("Message body not found");
-    }
-    return sendMsgBody;
   }
 
   /**
@@ -182,9 +172,14 @@ class Handlers {
       const postToConnectionCommand = new PostToConnectionCommand({
         ConnectionId: connectionId,
         Data: messageBody,
-      });// create the post command
-      const postToConnectionCommandResponse =await apigw.send(postToConnectionCommand);// post the message to the connection
-      console.log("postToConnectionCommandResponse in postToTheConnection:", postToConnectionCommandResponse);
+      }); // create the post command
+      const postToConnectionCommandResponse = await apigw.send(
+        postToConnectionCommand
+      ); // post the message to the connection
+      console.log(
+        "postToConnectionCommandResponse in postToTheConnection:",
+        postToConnectionCommandResponse
+      );
       return true;
     } catch (error) {
       if (this.isConnectionNotExistError(error)) {
@@ -211,15 +206,13 @@ class Handlers {
     );
     console.log("connectionId in handleConnect:", connectionId);
 
-    // Check if queryStringParameters exists, contains userId key and is a string
     if (
-      !queryStringParameters || 
-      !queryStringParameters["userId"] || 
+      !queryStringParameters ||
+      !queryStringParameters["userId"] ||
       typeof queryStringParameters["userId"] !== "string"
     ) {
-      console.log("queryStringParameters is not valid in handleConnect:", queryStringParameters);
-      return responseForbidden; // @todo discuss with project lead:- implement error handling like given queryStringParameters is not valid
-    }
+      throw new Error("queryStringParameters not found");
+    } // @todo use schema validation using Joi
 
     // get userId from queryStringParameters
     const userId = queryStringParameters["userId"] as string;
@@ -255,8 +248,21 @@ class Handlers {
     const { chatMembers } = await this.retrieveChatMembers(connectionId);
     console.log("chatMembers in handleGetClients:", chatMembers);
 
+    const chatMembersWithEvent = {
+      chatMembers: [...chatMembers],
+      eventName: RouteKey.getClients,
+    };
+
+    console.log(
+      "chatMembersWithEvent in handleGetClients:",
+      chatMembersWithEvent
+    );
+
     // return all chat clients/members associated with this userId
-    const isChatMembersSent =await this.postToTheConnection(connectionId, JSON.stringify(chatMembers));
+    const isChatMembersSent = await this.postToTheConnection(
+      connectionId,
+      JSON.stringify(chatMembersWithEvent)
+    );
 
     console.log("isChatMembersSent in handleGetClients:", isChatMembersSent);
 
@@ -269,8 +275,17 @@ class Handlers {
   async handleSendMessage(sendMessageBody: string | null) {
     console.log("handleSendMessage in [handler]");
 
-    const sendMessage: NewMessageDto =
-      this.parseSendMessageBody(sendMessageBody);
+    const sendMessage: NewMessageDto = JSON.parse(
+      sendMessageBody || "{}"
+    )
+    if (
+      !sendMessage ||
+      !sendMessage.text ||
+      !sendMessage.chatId ||
+      !sendMessage.senderId
+    ) {
+      throw new Error("Message body not found");
+    } // @todo use schemas folder and do validation using joi
 
     console.log("sendMessage:", sendMessage);
 
@@ -303,11 +318,18 @@ class Handlers {
 
     const receiverConnectionId = recieverClient[0].connectionId;
 
+    console.log("receiverConnectionId:", receiverConnectionId);
+
+    const sendMessageWithEvent = {
+      ...sendMessage,
+      eventName: RouteKey.sendMessage,
+    };
+
     // send the message to the reciever's connectionId using postToTheConnection function
     if (receiverConnectionId) {
       await this.postToTheConnection(
         receiverConnectionId,
-        JSON.stringify(sendMessage)
+        JSON.stringify(sendMessageWithEvent)
       );
     }
 
@@ -316,28 +338,38 @@ class Handlers {
 
   async handleGetMessages(
     connectionId: string,
-    queryStringParameters: APIGatewayProxyEventQueryStringParameters | null
+    getMessagesBody: string | null
   ) {
     console.log("handleGetMessages in [handler]");
 
+    const getMessagesEventBody = JSON.parse(
+      getMessagesBody || "{}"
+    )
+    if (
+      !getMessagesEventBody ||
+      !getMessagesEventBody.chatId ||
+      typeof getMessagesEventBody.chatId !== "string"
+    ) {
+      throw new Error("Get messages event body not found");
+    } // @todo use schema validation using joi
+
     // @todo implement pagination for messages(example:-view latest 10 messages)
 
-    // Check if pathParameters exists, contains chatId key and is a string
-    if (
-      !queryStringParameters ||
-      !queryStringParameters["chatId"] ||
-      typeof queryStringParameters["chatId"] !== "string"
-    ) {
-      return responseForbidden;
-    }
-
-    const chatId = queryStringParameters["chatId"] as string;
+    const chatId = getMessagesEventBody["chatId"] as string;
     console.log("chatId:", chatId);
 
     const messages = await this.getMessagesByChatId(chatId);
     console.log("messages:", messages);
 
-    const isMessagesRetrieved =await this.postToTheConnection(connectionId, JSON.stringify(messages));
+    const messagesWithEvent = {
+      messages: [...messages],
+      eventName: RouteKey.getMessages,
+    };
+
+    const isMessagesRetrieved = await this.postToTheConnection(
+      connectionId,
+      JSON.stringify(messagesWithEvent)
+    );
 
     console.log("isMessagesRetrieved:", isMessagesRetrieved);
 

@@ -1,5 +1,5 @@
 import express, { Application } from "express";
-// import cors from "cors";
+import cors from "cors";
 
 const app: Application = express();
 
@@ -9,7 +9,7 @@ import "./configs/dbConfig";
 import router from "./router";
 
 // Use CORS middleware
-// app.use(cors( ));
+app.use(cors());
 
 // Middleware to parse JSON bodies
 app.use(express.json());

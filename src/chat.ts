@@ -8,6 +8,9 @@ import {
 // load dtos
 import { Action } from "./dtos/RouteKeyActions.dto";
 
+// load enums
+import {RouteKey} from "./enums/RouteKey.enum";
+
 // load handlers
 import { handlerObj } from "./webSocketHandlers/handlers";
 
@@ -20,21 +23,26 @@ export const chatHandler = async (event: APIGatewayProxyEvent) => {
   console.log("event:", event);
   const connectionId = event.requestContext.connectionId as string;
   const routeKey = event.requestContext.routeKey as Action;
-
-  const sendMessageBody: string | null = event.body;
+  console.log("routeKey:", routeKey);
+  console.log("connectionId:", connectionId);
+  console.log("event.body:", event.body);
+  
 
   switch (routeKey) {
-    case "$connect":
-      return handlerObj.handleConnect(connectionId, event.queryStringParameters); // WebSocket connections do not natively support path parameters,you can send the userId in the connection URL as a query parameter
-    case "$disconnect":
+    case RouteKey.connect:
+      return handlerObj.handleConnect(connectionId,event.queryStringParameters ); // WebSocket connections do not natively support path parameters,you can send the userId in the connection URL as a query parameter
+    case RouteKey.disconnect:
       return handlerObj.handleDisconnect(connectionId);
-    case "getClients":
+    case RouteKey.getClients:
       return handlerObj.handleGetClients(connectionId); // retrieve chats of the particular client
-    case "sendMessage":
-      return handlerObj.handleSendMessage(sendMessageBody);
-    case "getMessages":
-      return handlerObj.handleGetMessages(connectionId, event.queryStringParameters);
+    case RouteKey.sendMessage:
+      return handlerObj.handleSendMessage(event.body);
+    case RouteKey.getMessages:
+      return handlerObj.handleGetMessages(
+        connectionId,
+        event.body
+      );
     default:
-      return responseForbidden; // @todo discuss with project lead:- implement error handling like not found route 
+      return responseForbidden; // @todo discuss with project lead:- implement error handling like not found route
   }
 };
