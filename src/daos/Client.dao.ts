@@ -11,9 +11,20 @@ class ClientDao {
   GSI1PK = "CLT#USR#";
   GSI1SK = "ID#{userId}";
 
-  async getClientByUserId(userId: string){
+  async getAllConnectionsByUserId(userId: string) {
+    console.log("getAllConnectionsByUserId in [dao]");
+
+    const GSI1SK = this.GSI1SK.replace("{userId}", userId);
+    return ClientModel.query("GSI1PK")
+      .eq(this.GSI1PK)
+      .where("GSI1SK")
+      .eq(GSI1SK)
+      .exec();
+  }
+
+  async getClientByUserId(userId: string) {
     console.log("getClientByUserId in [dao]");
-    
+
     const GSI1SK = this.GSI1SK.replace("{userId}", userId);
     return ClientModel.query("GSI1PK")
       .eq(this.GSI1PK)

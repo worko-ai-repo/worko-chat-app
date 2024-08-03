@@ -39,7 +39,6 @@ export const chatHandler = async (event: APIGatewayProxyEvent) => {
       return handlerObj.handleSendMessage(event.body);
     case RouteKey.getMessages:
       return handlerObj.handleGetMessages(
-        connectionId,
         event.body
       );
     default:

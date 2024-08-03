@@ -27,7 +27,6 @@ import { userDaoObj } from "../daos/User.dao";
 import { DbClientDto } from "../db/models/Client.model";
 import { DbChatDto } from "../db/models/Chat.model";
 import { RouteKey } from "../enums/RouteKey.enum";
-import { ConnectEventDto } from "../dtos/Connect.dto";
 import { GetMessagesDto } from "../dtos/GetMessages.dto";
 
 console.log(
@@ -60,8 +59,13 @@ class Handlers {
    */
   isConnectionNotExistError(e: unknown): boolean {
     console.log("isConnectionNotExistError in [handler]");
-    // 410 error means that connection is no longer valid
-    return (e as AWSError).statusCode === 410;
+    const awsError = e as AWSError;
+    console.log("awsError:", awsError);
+    console.log("awsError.name:", awsError.name);
+    console.log("tyeof awsError.name:", typeof awsError.name);
+
+    // Check if the status code is 410
+    return awsError.name === "410";
   }
 
   async getMessagesByChatId(chatId: string) {
@@ -163,26 +167,25 @@ class Handlers {
    * @return {Promise<boolean>} A promise that resolves to `true` if the message was sent successfully, or `false` if the connection no longer exists.
    */
   async postToTheConnection(
+    // @todo:- use "postToTheConnection" code in "utils" or "helpers" folder
     connectionId: string,
     messageBody: string
   ): Promise<boolean> {
     console.log("postToTheConnection in [handler]");
-    console.log("apigw in postToTheConnection:", apigw);
+    // console.log("apigw in postToTheConnection:", apigw);
     try {
       const postToConnectionCommand = new PostToConnectionCommand({
         ConnectionId: connectionId,
         Data: messageBody,
       }); // create the post command
-      const postToConnectionCommandResponse = await apigw.send(
-        postToConnectionCommand
-      ); // post the message to the connection
-      console.log(
-        "postToConnectionCommandResponse in postToTheConnection:",
-        postToConnectionCommandResponse
-      );
+
+      await apigw.send(postToConnectionCommand); // post the message to the connection
+
       return true;
     } catch (error) {
+      console.log(`connectionId: ${connectionId}`);
       if (this.isConnectionNotExistError(error)) {
+        console.log("postToTheConnection if part error");
         const retrivedClient = await this.checkClientExists(connectionId);
 
         await clientDaoObj.deleteClientByConnectionId(retrivedClient);
@@ -277,7 +280,7 @@ class Handlers {
 
     const sendMessage: NewMessageDto = JSON.parse(
       sendMessageBody || "{}"
-    )
+    ).messageData;
     if (
       !sendMessage ||
       !sendMessage.text ||
@@ -297,7 +300,7 @@ class Handlers {
 
     // if chat record is not found, return responseForbidden
     if (!specificChatDetail.count || specificChatDetail.count === 0) {
-      return responseForbidden;
+      return responseForbidden; // @todo discuss with project lead:- implement error handling like not found
     }
 
     const receiverIdData: string[] = specificChatDetail[0].members.filter(
@@ -308,27 +311,20 @@ class Handlers {
     const receiverId = receiverIdData[0];
     console.log("receiverId:", receiverId);
 
-    // retrieve the reciever's connectionId using reciever's userId
-    const recieverClient = await clientDaoObj.getClientByUserId(receiverId);
-
-    // if client record is not found, return responseForbidden
-    if (!recieverClient.count || recieverClient.count === 0) {
-      return responseForbidden;
-    }
-
-    const receiverConnectionId = recieverClient[0].connectionId;
-
-    console.log("receiverConnectionId:", receiverConnectionId);
+    // get the reciever's all connectionid's
+    const receiverConnections = await clientDaoObj.getAllConnectionsByUserId(
+      receiverId
+    );
 
     const sendMessageWithEvent = {
       ...sendMessage,
       eventName: RouteKey.sendMessage,
     };
 
-    // send the message to the reciever's connectionId using postToTheConnection function
-    if (receiverConnectionId) {
+    // send the message to all receiver's connections
+    for (const connection of receiverConnections) {
       await this.postToTheConnection(
-        receiverConnectionId,
+        connection.connectionId,
         JSON.stringify(sendMessageWithEvent)
       );
     }
@@ -337,18 +333,19 @@ class Handlers {
   }
 
   async handleGetMessages(
-    connectionId: string,
     getMessagesBody: string | null
   ) {
     console.log("handleGetMessages in [handler]");
 
-    const getMessagesEventBody = JSON.parse(
+    const getMessagesEventBody: GetMessagesDto = JSON.parse(
       getMessagesBody || "{}"
-    )
+    );
     if (
       !getMessagesEventBody ||
       !getMessagesEventBody.chatId ||
-      typeof getMessagesEventBody.chatId !== "string"
+      typeof getMessagesEventBody.chatId !== "string" ||
+      !getMessagesEventBody.senderId ||
+      typeof getMessagesEventBody.senderId !== "string"
     ) {
       throw new Error("Get messages event body not found");
     } // @todo use schema validation using joi
@@ -363,18 +360,20 @@ class Handlers {
 
     const messagesWithEvent = {
       messages: [...messages],
+      chatId: chatId,
       eventName: RouteKey.getMessages,
     };
 
-    const isMessagesRetrieved = await this.postToTheConnection(
-      connectionId,
-      JSON.stringify(messagesWithEvent)
+    // get the sender's all connectionid's
+    const senderConnections = await clientDaoObj.getAllConnectionsByUserId(
+      getMessagesEventBody.senderId
     );
 
-    console.log("isMessagesRetrieved:", isMessagesRetrieved);
-
-    if (!isMessagesRetrieved) {
-      return responseForbidden;
+    for (const connection of senderConnections) {
+      await this.postToTheConnection(
+        connection.connectionId,
+        JSON.stringify(messagesWithEvent)
+      );
     }
     return responseOK;
   }
