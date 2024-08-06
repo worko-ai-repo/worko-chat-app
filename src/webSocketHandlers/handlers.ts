@@ -28,6 +28,7 @@ import { DbClientDto } from "../db/models/Client.model";
 import { DbChatDto } from "../db/models/Chat.model";
 import { RouteKey } from "../enums/RouteKey.enum";
 import { GetMessagesDto } from "../dtos/GetMessages.dto";
+import { eventNames } from "process";
 
 console.log(
   "process.env.WSSAPIGATEWAYENDPOINT:",
@@ -91,13 +92,14 @@ class Handlers {
     // first get the client
     const getClient = await clientDaoObj.getClientByConnectionId(connectionId);
 
-    // if no client found throw error
+    //if no client found throw error, @todo use BaseError class
     if (getClient.count === 0) {
       throw new Error(`No client found with connectionId: ${connectionId}`);
     }
     const retrivedClient = getClient[0];
     return retrivedClient;
   }
+
   /**
    * Retrieves all chats from the database.
    *
@@ -166,8 +168,9 @@ class Handlers {
    * @param {string} messageBody - The message to send.
    * @return {Promise<boolean>} A promise that resolves to `true` if the message was sent successfully, or `false` if the connection no longer exists.
    */
+
+  // @todo:- use "postToTheConnection" code in "utils" or "helpers" folder
   async postToTheConnection(
-    // @todo:- use "postToTheConnection" code in "utils" or "helpers" folder
     connectionId: string,
     messageBody: string
   ): Promise<boolean> {
@@ -198,6 +201,49 @@ class Handlers {
     }
   }
 
+  async notifyChatMates(connectionId: string, isOnline: boolean) {
+    console.log("notifyChatMates in [handler]");
+
+    const { chatMembers, userId } = await this.retrieveChatMembers(
+      connectionId
+    );
+
+    const onlineStatus = {
+      userId,
+      isOnline,
+      chatMembers,
+      eventName: isOnline ? RouteKey.connect : RouteKey.disconnect,
+    };
+
+    for (const chatMate of chatMembers) {
+      const chatMateUserId = chatMate.colleagueUserId;
+
+      const chatMateConnectionIds =
+        await clientDaoObj.getAllConnectionsByUserId(chatMateUserId);
+      console.log(
+        "chatMateConnectionIds in notifyChatMates:",
+        chatMateConnectionIds
+      );
+
+      // if no connections found for the chat mate then continue to next chat mate
+      if (!chatMateConnectionIds.count) {
+        continue;
+      }
+
+      for (const chatMateConnectionId of chatMateConnectionIds) {
+        console.log(
+          "chatMateConnectionId in notifyChatMates:",
+          chatMateConnectionId
+        );
+
+        await this.postToTheConnection(
+          chatMateConnectionId.connectionId,
+          JSON.stringify(onlineStatus)
+        );
+      }
+    }
+  }
+
   async handleConnect(
     connectionId: string,
     queryStringParameters: APIGatewayProxyEventQueryStringParameters | null
@@ -209,24 +255,24 @@ class Handlers {
     );
     console.log("connectionId in handleConnect:", connectionId);
 
+    // @todo use validation using Joi in schema folder
     if (
       !queryStringParameters ||
       !queryStringParameters["userId"] ||
       typeof queryStringParameters["userId"] !== "string"
     ) {
       throw new Error("queryStringParameters not found");
-    } // @todo use schema validation using Joi
+    }
 
     // get userId from queryStringParameters
     const userId = queryStringParameters["userId"] as string;
     console.log("userId in handleConnect:", userId);
 
-    // @todo: DISCUSS WITH PROJECT LEAD:- Check if user with connectionId already exists, like it is running on the web browser and exists in database and if exists dont create a new client connectionId with same userId
-
     // create a new client
     await clientDaoObj.createClient(connectionId, userId);
 
-    // @todo: implement functionality:- for already websocket connected employee/candidate that this person is online/connected
+    // Notify chat mates that this user is online
+    await this.notifyChatMates(connectionId, true);
 
     return responseOK;
   }
@@ -241,7 +287,8 @@ class Handlers {
 
     await clientDaoObj.deleteClientByConnectionId(retrivedClient);
 
-    // @todo: implement functionality:- for chatting candidate/employee that this person is offline/disconnected
+    // Notify chat mates that this user is offline
+    await this.notifyChatMates(connectionId, false);
 
     return responseOK;
   }
@@ -332,9 +379,7 @@ class Handlers {
     return responseOK;
   }
 
-  async handleGetMessages(
-    getMessagesBody: string | null
-  ) {
+  async handleGetMessages(getMessagesBody: string | null) {
     console.log("handleGetMessages in [handler]");
 
     const getMessagesEventBody: GetMessagesDto = JSON.parse(
