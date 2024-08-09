@@ -19,12 +19,12 @@ const responseForbidden = {
 };
 
 export const chatHandler = async (event: APIGatewayProxyEvent) => {
-  console.log("event:", event);
+  // console.log("event:", event);
   const connectionId = event.requestContext.connectionId as string;
   const routeKey = event.requestContext.routeKey as Action;
-  console.log("routeKey:", routeKey);
-  console.log("connectionId:", connectionId);
-  console.log("event.body:", event.body);
+  // console.log("routeKey:", routeKey);
+  // console.log("connectionId:", connectionId);
+  // console.log("event.body:", event.body);
 
   switch (routeKey) {
     case RouteKey.connect:
@@ -32,7 +32,6 @@ export const chatHandler = async (event: APIGatewayProxyEvent) => {
         connectionId,
         event.queryStringParameters
       ); // WebSocket connections do not natively support path parameters,you can send the userId in the connection URL as a query parameter
-      
     case RouteKey.disconnect:
       return handlerObj.handleDisconnect(connectionId);
     case RouteKey.getClients:

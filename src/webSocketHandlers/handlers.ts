@@ -28,18 +28,14 @@ import { DbClientDto } from "../db/models/Client.model";
 import { DbChatDto } from "../db/models/Chat.model";
 import { RouteKey } from "../enums/RouteKey.enum";
 import { GetMessagesDto } from "../dtos/GetMessages.dto";
-import { eventNames } from "process";
 
-console.log(
-  "process.env.WSSAPIGATEWAYENDPOINT:",
-  process.env.WSSAPIGATEWAYENDPOINT
-);
-console.log("process.env.APP_SLS_REGION:", process.env.APP_SLS_REGION);
+// console.log("process.env.WSSAPIGATEWAYENDPOINT:",process.env.WSSAPIGATEWAYENDPOINT);
+// console.log("process.env.APP_SLS_REGION:", process.env.APP_SLS_REGION);
 const apigw = new ApiGatewayManagementApiClient({
   region: process.env.APP_SLS_REGION,
   endpoint: process.env.WSSAPIGATEWAYENDPOINT,
 });
-console.log("apigw:", apigw);
+// console.log("apigw:", apigw);
 
 const responseOK = {
   statusCode: 200,
@@ -61,15 +57,16 @@ class Handlers {
   isConnectionNotExistError(e: unknown): boolean {
     console.log("isConnectionNotExistError in [handler]");
     const awsError = e as AWSError;
-    console.log("awsError:", awsError);
+    // console.log("awsError:", awsError);
     console.log("awsError.name:", awsError.name);
-    console.log("tyeof awsError.name:", typeof awsError.name);
+    // console.log("tyeof awsError.name:", typeof awsError.name);
 
     // Check if the status code is 410
     return awsError.name === "410";
   }
 
   async getMessagesByChatId(chatId: string) {
+    console.log("getMessagesByChatId in [handler]");
     const messages = await messageDaoObj.getMessagesByChatId(chatId);
     if (messages.count === 0) {
       return [];
@@ -82,7 +79,7 @@ class Handlers {
         return { ...message, senderName, senderEmail };
       })
     );
-    console.log(messagesWithUser, "messagesWithUser");
+    // console.log(messagesWithUser, "messagesWithUser");
 
     return messagesWithUser;
   }
@@ -106,7 +103,7 @@ class Handlers {
    * @return {Promise<QueryResponse<DbChatDto>>} A promise that resolves to an array of chat models.
    */
   async getAllChats(): Promise<QueryResponse<DbChatDto>> {
-    console.log("getAllChats in [service]");
+    console.log("getAllChats in [handler]");
     return chatDaoObj.getAllChats();
   }
 
@@ -116,12 +113,12 @@ class Handlers {
    * @param {string} userId - The ID of the user to filter by.
    */
   async getChatRecordsByUserId(userId: string) {
+    console.log("getChatRecordsByUserId in [handler]");
     const AllChats = await this.getAllChats();
 
     const filteredChats = AllChats.filter((chat: DbChatDto) => {
       return chat.members.includes(userId);
     });
-    console.log(filteredChats, "filteredChats in getChatRecordsByUserId");
 
     if (filteredChats.length === 0) {
       return [];
@@ -137,10 +134,7 @@ class Handlers {
         };
       }
     );
-    console.log(
-      filteredChatsExceptionUserId,
-      "filteredChatsExceptionUserId in getChatRecordsByUserId"
-    );
+
     const colleagueUserIdWithDetails = await Promise.all(
       filteredChatsExceptionUserId.map(async (chat) => {
         const user = await userDaoObj.getUserById(chat.colleagueUserId);
@@ -152,24 +146,26 @@ class Handlers {
   }
 
   async retrieveChatMembers(connectionId: string) {
+    console.log("retrieveChatMembers in [handler]");
     // get client by given connectionId
     const retrivedClient = await this.checkClientExists(connectionId);
 
-    // use userId from the returned clientDetail to get all chat clients/members associated with this userId
+    // use userId from the returned clientDetail to get all chat clients/members associated with connected userId
     const userId = retrivedClient.userId;
     const chatMembers = await this.getChatRecordsByUserId(userId);
     return { chatMembers, userId };
   }
 
   /**
+   * postToTheConnection
+   *
    * Sends a message to a WebSocket connection.
+   * @todo - use "postToTheConnection" code in "utils" or "helpers" folder
    *
    * @param {string} connectionId - The ID of the WebSocket connection.
    * @param {string} messageBody - The message to send.
    * @return {Promise<boolean>} A promise that resolves to `true` if the message was sent successfully, or `false` if the connection no longer exists.
    */
-
-  // @todo:- use "postToTheConnection" code in "utils" or "helpers" folder
   async postToTheConnection(
     connectionId: string,
     messageBody: string
@@ -186,9 +182,9 @@ class Handlers {
 
       return true;
     } catch (error) {
-      console.log(`connectionId: ${connectionId}`);
+      console.log(`connectionId: ${connectionId} in catch block of postToTheConnection`);
+      // if the error related to connection not exist then delete the client/connection id from the database
       if (this.isConnectionNotExistError(error)) {
-        console.log("postToTheConnection if part error");
         const retrivedClient = await this.checkClientExists(connectionId);
 
         await clientDaoObj.deleteClientByConnectionId(retrivedClient);
@@ -201,12 +197,32 @@ class Handlers {
     }
   }
 
+  /**
+   * broadcast
+   * 
+   * Broadcasts a message to multiple WebSocket connections.
+   *
+   * @todo - use "broadcast" code in "utils" or "helpers" folder
+   * @param {string[]} connectionIds - Array of connection IDs to broadcast the message.
+   * @param {string} messageBody - The message to broadcast.
+   */
+  async broadcast(connectionIds: string[], messageBody: string) {
+    console.log("broadcast in [handler]");
+    for (const connectionId of connectionIds) {
+      await this.postToTheConnection(connectionId, messageBody);
+    }
+  }
+
   async notifyChatMates(connectionId: string, isOnline: boolean) {
     console.log("notifyChatMates in [handler]");
 
-    const { chatMembers, userId } = await this.retrieveChatMembers(
-      connectionId
-    );
+    // retrieve userIds of chatting friends/chattingMates for connected client/user/candidate/employee
+    const { chatMembers, userId } = await this.retrieveChatMembers(connectionId);
+
+    if (chatMembers.length === 0) {
+      // No chat mates to notify
+      return;
+    }
 
     const onlineStatus = {
       userId,
@@ -216,31 +232,26 @@ class Handlers {
     };
 
     for (const chatMate of chatMembers) {
+      console.log("chatMate in notifyChatMates for loop:", chatMate);
+      // get userId of chat mate
       const chatMateUserId = chatMate.colleagueUserId;
 
-      const chatMateConnectionIds =
-        await clientDaoObj.getAllConnectionsByUserId(chatMateUserId);
-      console.log(
-        "chatMateConnectionIds in notifyChatMates:",
-        chatMateConnectionIds
-      );
+      // get connectionIds of chat mate using userId
+      const chatMateConnectionIds = await clientDaoObj.getAllConnectionsByUserId(chatMateUserId);
+      console.log("chatMateConnectionIds in notifyChatMates count:",chatMateConnectionIds.count);
 
       // if no connections found for the chat mate then continue to next chat mate
       if (!chatMateConnectionIds.count) {
         continue;
       }
 
-      for (const chatMateConnectionId of chatMateConnectionIds) {
-        console.log(
-          "chatMateConnectionId in notifyChatMates:",
-          chatMateConnectionId
-        );
+      // get array of connectionIds of chat mate
+      const connectionIds = chatMateConnectionIds.map(
+        (chatMateConnectionId) => chatMateConnectionId.connectionId
+      );
 
-        await this.postToTheConnection(
-          chatMateConnectionId.connectionId,
-          JSON.stringify(onlineStatus)
-        );
-      }
+      // broadcast online/offline status to all connections of chat mate
+      await this.broadcast(connectionIds, JSON.stringify(onlineStatus));
     }
   }
 
@@ -249,13 +260,8 @@ class Handlers {
     queryStringParameters: APIGatewayProxyEventQueryStringParameters | null
   ) {
     console.log("handleConnect in [handler]");
-    console.log(
-      "queryStringParameters in handleConnect:",
-      queryStringParameters
-    );
-    console.log("connectionId in handleConnect:", connectionId);
 
-    // @todo use validation using Joi in schema folder
+    // @todo use validation using Joi in schemas folder
     if (
       !queryStringParameters ||
       !queryStringParameters["userId"] ||
@@ -266,7 +272,6 @@ class Handlers {
 
     // get userId from queryStringParameters
     const userId = queryStringParameters["userId"] as string;
-    console.log("userId in handleConnect:", userId);
 
     // create a new client
     await clientDaoObj.createClient(connectionId, userId);
@@ -296,25 +301,17 @@ class Handlers {
   async handleGetClients(connectionId: string) {
     console.log("handleGetClients in [handler]");
     const { chatMembers } = await this.retrieveChatMembers(connectionId);
-    console.log("chatMembers in handleGetClients:", chatMembers);
 
     const chatMembersWithEvent = {
       chatMembers: [...chatMembers],
       eventName: RouteKey.getClients,
     };
 
-    console.log(
-      "chatMembersWithEvent in handleGetClients:",
-      chatMembersWithEvent
-    );
-
     // return all chat clients/members associated with this userId
     const isChatMembersSent = await this.postToTheConnection(
       connectionId,
       JSON.stringify(chatMembersWithEvent)
     );
-
-    console.log("isChatMembersSent in handleGetClients:", isChatMembersSent);
 
     if (!isChatMembersSent) {
       return responseForbidden;
@@ -337,8 +334,6 @@ class Handlers {
       throw new Error("Message body not found");
     } // @todo use schemas folder and do validation using joi
 
-    console.log("sendMessage:", sendMessage);
-
     // create a new message record in Message model
     await messageDaoObj.addMessage(sendMessage);
 
@@ -356,7 +351,6 @@ class Handlers {
 
     // get the reciever's userId from the chat record
     const receiverId = receiverIdData[0];
-    console.log("receiverId:", receiverId);
 
     // get the reciever's all connectionid's
     const receiverConnections = await clientDaoObj.getAllConnectionsByUserId(
@@ -368,13 +362,12 @@ class Handlers {
       eventName: RouteKey.sendMessage,
     };
 
-    // send the message to all receiver's connections
-    for (const connection of receiverConnections) {
-      await this.postToTheConnection(
-        connection.connectionId,
-        JSON.stringify(sendMessageWithEvent)
-      );
-    }
+    const connectionIds = receiverConnections.map(receiverConnection=>
+      receiverConnection.connectionId
+    )
+
+    // send/broadcast message to all the reciever's connections
+    await this.broadcast(connectionIds, JSON.stringify(sendMessageWithEvent));
 
     return responseOK;
   }
@@ -398,10 +391,8 @@ class Handlers {
     // @todo implement pagination for messages(example:-view latest 10 messages)
 
     const chatId = getMessagesEventBody["chatId"] as string;
-    console.log("chatId:", chatId);
 
     const messages = await this.getMessagesByChatId(chatId);
-    console.log("messages:", messages);
 
     const messagesWithEvent = {
       messages: [...messages],
@@ -414,12 +405,12 @@ class Handlers {
       getMessagesEventBody.senderId
     );
 
-    for (const connection of senderConnections) {
-      await this.postToTheConnection(
-        connection.connectionId,
-        JSON.stringify(messagesWithEvent)
-      );
-    }
+    const connectionIds = senderConnections.map(senderConnection=>
+      senderConnection.connectionId
+    )
+
+    await this.broadcast(connectionIds, JSON.stringify(messagesWithEvent));
+
     return responseOK;
   }
 }
