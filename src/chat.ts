@@ -14,14 +14,14 @@ import { RouteKey } from "./enums/RouteKey.enum";
 import { handlerObj } from "./webSocketHandlers/handlers";
 
 const responseForbidden = {
-  statusCode: 403,
+  statusCode: 403, // The HTTP status code '403 forbidden means you don't have permission to access this resource
   body: "",
 };
 
 export const chatHandler = async (event: APIGatewayProxyEvent) => {
   // console.log("event:", event);
   const connectionId = event.requestContext.connectionId as string;
-  const routeKey = event.requestContext.routeKey as Action;
+  const routeKey = event.requestContext.routeKey as Action;// @todo: use Action type as "enum" instead of "type"
   // console.log("routeKey:", routeKey);
   // console.log("connectionId:", connectionId);
   // console.log("event.body:", event.body);

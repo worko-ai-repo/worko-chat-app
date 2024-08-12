@@ -12,7 +12,7 @@ package:
   individually: true # This option will allow Serverless Framework to package and deploy each function individually.
 
 # "websocketHandler" is the name of the Lambda function which will be create on aws
-# "dist/chat" is the path of the handler file
+# "dist/chat" is the path of the handler file in dist folder after compiling from typescript to javascript
 # "chatHandler" is the name of the exported function in dist/chat.ts file
 functions:
   websocketHandler:
@@ -28,6 +28,5 @@ functions:
           route: sendMessage # Custom route for sending messages.
       - websocket:
           route: getMessages # Custom route for retrieving messages.
-      - websocket:
-          route: deleteMessage #(@todo, like delete all messages or particular message):- Custom route for deleting a particular message
-
+      # - websocket:
+          # route: deleteMessage #(@todo, like delete all messages or particular message):- Custom route for deleting a particular message.

@@ -173,13 +173,16 @@ class Handlers {
     console.log("postToTheConnection in [handler]");
     // console.log("apigw in postToTheConnection:", apigw);
     try {
+      // create the post command
       const postToConnectionCommand = new PostToConnectionCommand({
         ConnectionId: connectionId,
         Data: messageBody,
-      }); // create the post command
+      });
 
-      await apigw.send(postToConnectionCommand); // post the message to the connection
+      // post the message to the connection
+      await apigw.send(postToConnectionCommand);
 
+      // return true if the message was sent successfully
       return true;
     } catch (error) {
       console.log(`connectionId: ${connectionId} in catch block of postToTheConnection`);
@@ -189,10 +192,11 @@ class Handlers {
 
         await clientDaoObj.deleteClientByConnectionId(retrivedClient);
 
+        // return false if the connection no longer exists and the message was not sent
         return false;
       } else {
         console.log("postToTheConnection else part error");
-        throw error;
+        throw error; // @todo - use BaseError class
       }
     }
   }
@@ -213,10 +217,10 @@ class Handlers {
     }
   }
 
-  async notifyChatMates(connectionId: string, isOnline: boolean) {
-    console.log("notifyChatMates in [handler]");
+  async notifyOnlineOfflineStatus(connectionId: string, isOnline: boolean) {
+    console.log("notifyOnlineOfflineStatus in [handler]");
 
-    // retrieve userIds of chatting friends/chattingMates for connected client/user/candidate/employee
+    // retrieve userIds of chatting friends/chattingMates for connected client/user/candidate or employee
     const { chatMembers, userId } = await this.retrieveChatMembers(connectionId);
 
     if (chatMembers.length === 0) {
@@ -232,13 +236,13 @@ class Handlers {
     };
 
     for (const chatMate of chatMembers) {
-      console.log("chatMate in notifyChatMates for loop:", chatMate);
+      console.log("chatMate in notifyOnlineOfflineStatus for loop:", chatMate);
       // get userId of chat mate
       const chatMateUserId = chatMate.colleagueUserId;
 
       // get connectionIds of chat mate using userId
       const chatMateConnectionIds = await clientDaoObj.getAllConnectionsByUserId(chatMateUserId);
-      console.log("chatMateConnectionIds in notifyChatMates count:",chatMateConnectionIds.count);
+      console.log("chatMateConnectionIds in notifyOnlineOfflineStatus count:",chatMateConnectionIds.count);
 
       // if no connections found for the chat mate then continue to next chat mate
       if (!chatMateConnectionIds.count) {
@@ -277,7 +281,7 @@ class Handlers {
     await clientDaoObj.createClient(connectionId, userId);
 
     // Notify chat mates that this user is online
-    await this.notifyChatMates(connectionId, true);
+    await this.notifyOnlineOfflineStatus(connectionId, true);
 
     return responseOK;
   }
@@ -290,10 +294,10 @@ class Handlers {
     */
     const retrivedClient = await this.checkClientExists(connectionId);
 
-    await clientDaoObj.deleteClientByConnectionId(retrivedClient);
-
     // Notify chat mates that this user is offline
-    await this.notifyChatMates(connectionId, false);
+    await this.notifyOnlineOfflineStatus(connectionId, false);
+
+    await clientDaoObj.deleteClientByConnectionId(retrivedClient);
 
     return responseOK;
   }
