@@ -25,6 +25,7 @@ Actions:
     Configuration:
       # Required - Steps are sequential instructions that run shell commands
       Steps:
+        - Run: npm install -g typescript
         - Run: npm run build
       Container:
         Registry: CODECATALYST
