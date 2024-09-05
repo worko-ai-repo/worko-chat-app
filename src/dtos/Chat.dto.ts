@@ -1,5 +1,7 @@
 
+// request body for creating new chat between two users
 export interface ChatMembersDto {
-    senderId: string; 
-    receiverId: string;
+  referralId: string; // using referralId as id attribute for Chat table
+  userIdOne: string; 
+  userIdTwo: string; 
 }

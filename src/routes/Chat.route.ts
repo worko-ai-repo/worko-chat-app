@@ -1,17 +1,17 @@
+// import express router
 import { Router } from "express";
+
+// import controllers
 import ChatController from "../controllers/Chat.controller";
 
+// chat router
 const ChatRouter = Router();
 
+// create chat controller instance object
 const chatControllerObj = new ChatController();
 
-// create chat between two users
+// create chat between two users using referralId as id attribute of Chat table, chat members as senderId(user id of sender) and receiverId(user id of receiver)
 ChatRouter.post("/create", chatControllerObj.create);
 
-// get all the chat records of specific user(list of all with whom particular employee/candidate chatting )
-ChatRouter.get("/:userId", chatControllerObj.getChatRecordsByUserId);
-
-// get specific chat between two users gives chatid
-ChatRouter.get("/find/:firstId/:secondId", chatControllerObj.getSpecificChatByUserId);
-
+// export chat router
 export default ChatRouter;

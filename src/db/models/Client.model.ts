@@ -1,7 +1,13 @@
+// import dynamoose library
 import dynamoose from "dynamoose";
+
+// load db constants
 import DB_CONSTANTS from "../DB.constants";
+
+// import models
 import { BaseDbDto } from "./Base.model";
 
+// create db client dto which extends base db dto
 class DbClientDto extends BaseDbDto {
   GSI1PK!: string;
   GSI1SK!: string;
@@ -9,6 +15,7 @@ class DbClientDto extends BaseDbDto {
   userId!: string;
 }
 
+// create dynamoose schema
 const clientSchema = new dynamoose.Schema(
   {
     ...DB_CONSTANTS.WORKO_PK_SK,
@@ -16,8 +23,8 @@ const clientSchema = new dynamoose.Schema(
       type: String,
       index: {
         name: "GSI1",
-        rangeKey: "GSI1SK",
         type: "global",
+        rangeKey: "GSI1SK",
       },
       required: true,
     },
@@ -30,7 +37,7 @@ const clientSchema = new dynamoose.Schema(
       required: true,
     },
     connectionId: { type: String, required: true },
-    userId: { type: String, required: true }, 
+    userId: { type: String, required: true },
   },
   {
     ...DB_CONSTANTS.WORKO_MODEL_SCHEMA_OPTIONS,

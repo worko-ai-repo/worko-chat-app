@@ -1,7 +1,6 @@
-.env
-
-/node_modules
 
 /dist
 
-.env.production
+/node_modules
+
+.env

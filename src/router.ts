@@ -1,15 +1,14 @@
+// import express router
 import { Router } from "express";
 
+// import routes
 import ChatRouter from "./routes/Chat.route";
-import MessageRouter from "./routes/Message.route";
-import UserRouter from "./routes/User.route";
 
+// create router
 const router = Router();
 
-router.use("/user", UserRouter);
-
+// chat router
 router.use("/chat", ChatRouter);
 
-router.use("/message", MessageRouter);
-
+// export router
 export default router;

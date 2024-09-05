@@ -1,3 +1,4 @@
+
 /**
  *
  * Constants related to the 'worko' database table, including table name, primary key and sort key definitions,
@@ -26,5 +27,10 @@ const DB_CONSTANTS = {
     tableName: process.env.APP_AWS_DYNAMODB_TABLE_NAME,
   },
 };
+
+console.log(
+  "process.env.APP_AWS_DYNAMODB_TABLE_NAME in DB.constants.ts",
+  process.env.APP_AWS_DYNAMODB_TABLE_NAME
+);
 
 export default DB_CONSTANTS

@@ -1,67 +1,76 @@
-// load dynamoose
+// load dynamoose library
 import { QueryResponse } from "dynamoose/dist/ItemRetriever";
 
 // load models
 import { ClientModel, DbClientDto } from "../db/models/Client.model";
 
+// client dao class that implements the CRUD operations for clients
 class ClientDao {
   ModelName = "Client";
-  partitionKey = "CLT#";
-  sortKey = "ID#{connectionId}";
-  GSI1PK = "CLT#USR#";
-  GSI1SK = "ID#{userId}";
+  partitionKey = "CHAT#ID#{chatId}";
+  sortKey = "CONN#ID#{connectionId}";
 
-  async getAllConnectionsByUserId(userId: string) {
-    console.log("getAllConnectionsByUserId in [dao]");
+  GSI1PK = "CONN#ID#";
+  GSI1SK = "ID#{connectionId}";
 
-    const GSI1SK = this.GSI1SK.replace("{userId}", userId);
-    return ClientModel.query("GSI1PK")
-      .eq(this.GSI1PK)
-      .where("GSI1SK")
-      .eq(GSI1SK)
-      .exec();
-  }
+  /**
+   * createClient
+   *
+   * Creates a new client record in the database.
+   *
+   * @param {string} connectionId - The connection ID of the client.
+   * @param {string} userId - The user ID of the client.
+   * @param {string} referralId - The referral ID
+   * @return {Promise<DbClientDto>} A promise that resolves to the newly created client model.
+   */
+  async createClient(
+    connectionId: string,
+    userId: string,
+    referralId: string
+  ): Promise<DbClientDto> {
 
-  async getClientByUserId(userId: string) {
-    console.log("getClientByUserId in [dao]");
-
-    const GSI1SK = this.GSI1SK.replace("{userId}", userId);
-    return ClientModel.query("GSI1PK")
-      .eq(this.GSI1PK)
-      .where("GSI1SK")
-      .eq(GSI1SK)
-      .exec();
+    return ClientModel.create({
+      PK: this.partitionKey.replace("{chatId}", referralId),
+      SK: this.sortKey.replace("{connectionId}", connectionId),
+      GSI1PK: this.GSI1PK,
+      GSI1SK: this.GSI1SK.replace("{connectionId}", connectionId),
+      connectionId,
+      userId,
+    });
   }
 
   /**
-   * getClientByConnectionId
+   * getClient
    *
-   * Retrieves a client from the database based on the provided connection ID.
+   * Retrieves a client record from the database based on the provided connection ID and referral ID.
    *
-   * @param {string} connectionId - The ID of the connection associated with the client.
-   * @return {Promise<QueryResponse<DbClientDto>>} A promise that resolves to the query response containing the client data.
+   * @param {string} connectionId - The connection ID of the client.
+   * @param {string} referralId - The referral ID
+   * @return {Promise<QueryResponse<DbClientDto>>} A promise that resolves to the client record.
    */
-  async getClientByConnectionId(
-    connectionId: string
+  async getClient(
+    connectionId: string,
+    referralId: string
   ): Promise<QueryResponse<DbClientDto>> {
-    console.log("getClientByConnectionId in [dao]");
+    console.log("getClient in [dao]");
+
     return ClientModel.query("PK")
-      .eq(this.partitionKey)
+      .eq(this.partitionKey.replace("{chatId}", referralId))
       .where("SK")
       .eq(this.sortKey.replace("{connectionId}", connectionId))
       .exec();
   }
 
   /**
-   * deleteClientByConnectionId
+   * deleteClient
    *
    * Deletes a client from the database based on the provided client object.
    *
    * @param {DbClientDto} retrivedClient - The client object to be deleted.
-   * @return {Promise<void>} A promise that resolves when the client is successfully deleted.
    */
-  async deleteClientByConnectionId(retrivedClient: DbClientDto): Promise<void> {
-    console.log("deleteClientByConnectionId in [dao]");
+  async deleteClient(retrivedClient: DbClientDto) {
+    console.log("deleteClient in [dao]");
+
     /*
     Refer Below docs for how to delete Item in dynamodb using dynamoose:-
     https://dynamoosejs.com/guide/Item#itemdeletecallback
@@ -70,27 +79,51 @@ class ClientDao {
   }
 
   /**
-   * Creates a new client in the database.
+   * getAllConnectionsByChatId
    *
-   * @param {string} connectionId - The ID of the connection associated with the client.
-   * @param {string} userId - The ID of the user associated with the client.
-   * @return {Promise<DbClientDto>} A promise that resolves to the newly created client.
+   * Retrieves all client connections from the database based on the provided referral ID.
+   *
+   * @param {string} referralId - The referral ID .
+   * @return {Promise<QueryResponse<DbClientDto>>} A promise that resolves to the query response containing all client connections.
    */
-  async createClient(
-    connectionId: string,
-    userId: string
-  ): Promise<DbClientDto> {
-    console.log("createClient in [dao]");
-    return ClientModel.create({
-      PK: this.partitionKey,
-      SK: this.sortKey.replace("{connectionId}", connectionId),
-      GSI1PK: this.GSI1PK,
-      GSI1SK: this.GSI1SK.replace("{userId}", userId),
-      connectionId,
-      userId,
-    });
+  async getAllConnectionsByChatId(
+    referralId: string
+  ): Promise<QueryResponse<DbClientDto>> {
+    console.log("getAllConnections in [dao]");
+
+    console.log("referralId:", referralId);
+    console.log("typeof referralId:", typeof referralId);
+
+    return ClientModel.query("PK")
+      .eq(this.partitionKey.replace("{chatId}", referralId))
+      .where("SK")
+      .beginsWith("CONN#ID#")
+      .exec();
+  }
+
+  /**
+   * getClientByConnectionId
+   * 
+   * Retrieves a client record from the database based on the provided connection ID.
+   *
+   * @param {string} connectionId - The connection ID of the client.
+   * @return {Promise<QueryResponse<DbClientDto>>} A promise that resolves to the query response containing the client record.
+   */
+  async getClientByConnectionId(
+    connectionId: string
+  ): Promise<QueryResponse<DbClientDto>> {
+    console.log("getClientByConnectionId in [dao]");
+
+    return ClientModel.query("GSI1PK")
+      .eq(this.GSI1PK)
+      .where("GSI1SK")
+      .eq(this.GSI1SK.replace("{connectionId}", connectionId))
+      .exec();
   }
 }
 
+// create client dao object
 const clientDaoObj = new ClientDao();
+
+// export client dao instance object and class
 export { ClientDao, clientDaoObj };
