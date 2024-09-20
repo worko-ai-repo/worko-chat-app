@@ -31,7 +31,7 @@ Actions:
         - Run: npm i -g serverless@3.38.0
         - Run: npm i
         - Run: npm run build
-        - Run: cp .env.dev.env
+        - Run: cp .env.dev .env
         - Run: npm run deploy-offline
       Container:
         Registry: CODECATALYST
