@@ -6,8 +6,7 @@ import { RouteKeyAction } from "../enums/RouteKeyAction.enum";
 
 // Define validation schema for route key action
 export const ChatHandlerValidation = Joi.object({
-  routeKey: Joi
-    .string()
+  routeKey: Joi.string()
     .required()
     .valid(...Object.values(RouteKeyAction))
     .messages({
