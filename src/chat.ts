@@ -14,7 +14,7 @@ import SendMessage from "./wss-handlers/SendMessage.wss-handler";
 import GetMessages from "./wss-handlers/GetMessages.wss-handler";
 
 // load schemas
-import { ChatHandlerValidation } from "./schemas/test";
+import { ChatHandlerValidation } from "./schemas/ChatHandler.schema";
 
 // load utils
 import { RequestValidationError } from "./utils/errors.util";
