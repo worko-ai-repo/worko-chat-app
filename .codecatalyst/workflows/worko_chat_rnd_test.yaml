@@ -30,9 +30,8 @@ Actions:
         - Run: npm install -g n
         - Run: npm i -g serverless@3.38.0
         - Run: npm i
-        - Run: npm run build
         - Run: cp .env.dev .env
-        - Run: npm run deploy-offline
+        - Run: npm run build && serverless offline --stage dev
       Container:
         Registry: CODECATALYST
         Image: CodeCatalystLinuxLambda_Arm64:2024_03
