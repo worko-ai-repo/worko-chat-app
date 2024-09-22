@@ -32,7 +32,7 @@ Actions:
         - Run: npm i
         - Run: cp .env.local .env
         - Run: npm run build 
-        - Run: serverless offline --stage local
+        - Run: serverless deploy --stage local
       Container:
         Registry: CODECATALYST
         Image: CodeCatalystLinuxLambda_Arm64:2024_03
