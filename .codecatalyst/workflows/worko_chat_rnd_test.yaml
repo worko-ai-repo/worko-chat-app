@@ -33,7 +33,6 @@ Actions:
         - Run: cp .env.dev .env
         - Run: npm run build 
         - Run: export AWS_REGION=ap-south-1
-        - Run: cp environments/.env.dev .env
         - Run: serverless deploy --stage dev
       Container:
         Registry: CODECATALYST
