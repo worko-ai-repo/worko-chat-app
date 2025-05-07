@@ -4,6 +4,11 @@ import Joi from "joi";
 // import the enums
 import { SortOrderTypeEnum } from "../enums/Common.enum";
 
+/**
+ * commonSchema
+ * 
+ * Common schema for validating query parameters such as page size, last key, sort order, and search text.
+ */
 export const commonSchema = Joi.object({
   // Page size validation must be a number and must be at least 1
   pageSize: Joi.number().integer().required().min(1).messages({

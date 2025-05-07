@@ -1,5 +1,14 @@
+// Import Joi library
 import Joi from "joi";
 
+/**
+ * SendMessageDTOValidation
+ * 
+ * Joi schema for validating `NewMessageDto` data.
+ * 
+ * This schema validates the properties of a message to be sent. It ensures that each field is a string and is required. 
+ * Custom error messages are provided for each validation rule.
+ */
 export const SendMessageDTOValidation = Joi.object({
   text: Joi
     .string()

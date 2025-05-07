@@ -28,8 +28,8 @@ const DB_CONSTANTS = {
   },
 };
 
-console.log(
-  "process.env.APP_AWS_DYNAMODB_TABLE_NAME in DB.constants.ts",
+global.logger.info(
+  "APP_AWS_DYNAMODB_TABLE_NAME in DB.constants.ts",
   process.env.APP_AWS_DYNAMODB_TABLE_NAME
 );
 

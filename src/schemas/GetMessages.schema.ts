@@ -4,6 +4,7 @@ import Joi from "joi";
 // import common schema
 import { commonSchema } from "./Common.schema";
 
+// create get messages schema
 export const getMessagesDTOValidation = commonSchema.concat(
   Joi.object({
     referralId: Joi.string().required().messages({
@@ -15,11 +16,6 @@ export const getMessagesDTOValidation = commonSchema.concat(
       "string.base": `"senderId" should be a type of 'string'`,
       "string.empty": `"senderId" cannot be an empty field`,
       "any.required": `"senderId" is a required field`,
-    }),
-    action: Joi.string().required().messages({
-      "string.base": `"action" should be a type of 'string'`,
-      "string.empty": `"action" cannot be an empty field`,
-      "any.required": `"action" is a required field`,
-    }),
+    })
   })
 );
