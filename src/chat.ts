@@ -1,68 +1,113 @@
+// load libraries
+import "./libraries/Logger.library";
+
 // Import and execute the database configuration file to set up the database connection
-import "./configs/dbConfig";
+import "./db/DB.config";
 
-// Load necessary modules
-import { APIGatewayProxyEvent } from "aws-lambda";
+/**
+ * Importing APIGatewayProxyEvent type from AWS Lambda types package.
+ * This type represents the structure of the event object received by Lambda functions 
+ * triggered via API Gateway (WebSocket).
+ */
+import { APIGatewayProxyEvent, APIGatewayProxyResult } from "aws-lambda";
 
-// load enums
-import { RouteKeyAction } from "./enums/RouteKeyAction.enum";
+// load extensions
+import "./extensions/string.extension";
 
-// load handlers
-import Connect from "./wss-handlers/Connect.wss-handler";
-import Disconnect from "./wss-handlers/Disconnect.wss-handler";
-import SendMessage from "./wss-handlers/SendMessage.wss-handler";
-import GetMessages from "./wss-handlers/GetMessages.wss-handler";
+// Import enums
+import { RouteKeyActionEnum } from "./enums/Common.enum";
+
+// load web socket handlers
+import connect from "./wss-handlers/Connect.wss-handler";
+import disconnect from "./wss-handlers/Disconnect.wss-handler";
+import sendMessage from "./wss-handlers/SendMessage.wss-handler";
+import getMessages from "./wss-handlers/GetMessages.wss-handler";
+
+// load helpers
+import { APIGatewayProxyResponse } from "./helpers/api-gtw-proxy-result.helper";
 
 // load schemas
 import { ChatHandlerValidation } from "./schemas/ChatHandler.schema";
 
+// load types
+import { RouteKeyActionType } from "./types/WebSocket.type";
+
 // load utils
 import { RequestValidationError } from "./utils/errors.util";
+import { errorHandler } from "./utils/error-handler.util";
+import HttpStatusCode from "./utils/http-codes.util";
 
-export const chatHandler = async (event: APIGatewayProxyEvent) => {
-  console.log("event:", event);
+/**
+ * ChatHandler
+ *
+ * Handles WebSocket events like $connect, $disconnect, sendMessage, getMessages, $default routes and more routes in near future.
+ * The ChatHandler function is triggered by API Gateway WebSocket events,
+ * which contains information about the WebSocket connection and the route key of the event.
+ *
+ * @param {APIGatewayProxyEvent} event The event object received by the Lambda function,
+ * @throws {RequestValidationError} If the event RouteKey action is not valid.
+ * @returns {Promise<APIGatewayProxyResult>} The response object for the WebSocket message event.
+ */
+export const ChatHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
+  try {
+    global.logger.info("[ChatHandler]");
 
-  /*
-  The connection ID will be available in the request context, 
-  which is provided by the API Gateway when connecting to the WebSocket API 
-  */
-  const connectionId = event.requestContext.connectionId as string;
-  console.log("connectionId in [chatHandler]:", connectionId);
+    /**
+     * NOTE:- If any error occurs related to the websocket,
+     * first check the information present in the "event" object,
+     * because it contains most information about the websocket activities like
+     * "connectionId","routeKey", "queryStringParameters", "body", 
+     * "requestContext", "domainName", "stage", etc.
+     */
+    global.logger.info("'event' in [ChatHandler]:", event);
 
-  // Extract the route key from the event
-  const routeKey = event.requestContext.routeKey as RouteKeyAction;
-  console.log("routeKey in [chatHandler]:", routeKey);
+    // Extract the route key from the event
+    const routeKey = event.requestContext.routeKey as RouteKeyActionType;
 
-  // Validate the incoming route key and throw an error if it's invalid
-  const { error, value: routeKeyAction } = ChatHandlerValidation.validate(
-    { routeKey },
-    {
-      abortEarly: false,
+    // Validate the incoming route key and throw an error if it's invalid
+    const { error, value: validatedRouteKey } = ChatHandlerValidation.validate(
+      { routeKey },
+      {
+        abortEarly: false,
+      }
+    );
+    if (error) {
+      throw new RequestValidationError(error);
     }
-  );
-  if (error) {
-    throw new RequestValidationError(error);
-  }
-  console.log("routeKeyAction in [chatHandler]:", routeKeyAction); 
 
-  switch (routeKeyAction.routeKey) {
-    case RouteKeyAction.connect:
-      return Connect(connectionId, event.queryStringParameters); // WebSocket connections do not natively support path parameters,you can send the userId in the connection URL as a query parameter
-    case RouteKeyAction.disconnect:
-      return Disconnect(connectionId);
-    case RouteKeyAction.sendMessage:
-      return SendMessage(event.body);
-    case RouteKeyAction.getMessages:
-      return GetMessages(event.body);
-    case RouteKeyAction.default:
-      return {
-        statusCode: 200,
-        body: "Default route executed",
-      };
-    default:
-      return {
-        statusCode: 403, // The HTTP status code '403 forbidden means you don't have permission to access this resource
-        body: "",
-      };
+    switch (validatedRouteKey.routeKey) {
+      case RouteKeyActionEnum.connect:
+        /**
+         * API Gateway WebSocket connections do not natively support path parameters,
+         * you can send the userId in the connection URL as a query parameter
+         */
+        return connect(event);
+      case RouteKeyActionEnum.disconnect:
+        return disconnect(event.requestContext.connectionId as string);
+      case RouteKeyActionEnum.sendMessage:
+        return sendMessage(event);
+      case RouteKeyActionEnum.getMessages:
+        return getMessages(event);
+      case RouteKeyActionEnum.default:
+        // return the response object for the WebSocket message event
+        return APIGatewayProxyResponse.webSocketProxyResponse(
+          HttpStatusCode.OK_200,
+          "Default route executed"
+        );
+      default:
+        // return the response object for the WebSocket message event
+        return APIGatewayProxyResponse.webSocketProxyResponse(
+          HttpStatusCode.INTERNAL_SERVER_ERROR_500,
+          "Invalid route key"
+        );
+    }
+  } catch (error) {
+    await errorHandler.handleErrorWS(error,event);
+
+    // return the response object for the WebSocket message event
+    return APIGatewayProxyResponse.webSocketProxyResponse(
+      HttpStatusCode.INTERNAL_SERVER_ERROR_500,
+      "Something went wrong"
+    );
   }
 };

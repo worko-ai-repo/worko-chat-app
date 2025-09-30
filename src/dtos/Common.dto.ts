@@ -109,4 +109,18 @@ export interface RecordListingPaginationResponseDTO {
 export interface RecordListingResponseDTO {
   data: any[];
   pagination: RecordListingPaginationResponseDTO;
+  eventName?: string;
+}
+
+/**
+ * RequestLocalContextDto
+ *
+ * This `RequestLocalContextDto` object  can be accessed globally in the application.
+ * This was set from the authorizer context i.e. from `authorizer-context.middleware.ts`,
+ * This would be used in the backend to perform api security.
+ */
+export interface RequestLocalContextDto {
+  userId: string;
+  userEmail: string;
+  cognitoUserGroups: string[];
 }

@@ -79,7 +79,7 @@ export class RequestValidationError extends Error {
      * 
      * The "timeStamp" of moment when error occured/thrown
      */
-    public readonly timeStamp: string = (new Date()).toISOString();;
+    public readonly timeStamp: string = (new Date()).toISOString();
 
     /**
      * constructor

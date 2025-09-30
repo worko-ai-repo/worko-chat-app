@@ -19,6 +19,11 @@ export const ConnectDTOValidation = Joi.object({
         "string.empty": `"referralId" cannot be an empty field`,
         "any.required": `"referralId" is a required field`,
     }), 
+    /*
+    Authorization field is optional in the schema because in the "prod" or "dev" environment, 
+    the API gateway will pass the token as query string parameter in the Authorization variable but in the
+    local environment, it will not be passed.
+    */
     Authorization: Joi
     .string()
     .optional()

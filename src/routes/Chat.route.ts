@@ -10,8 +10,13 @@ const ChatRouter = Router();
 // create chat controller instance object
 const chatControllerObj = new ChatController();
 
-// create chat between two users using referralId as id attribute of Chat table, chat members as senderId(user id of sender) and receiverId(user id of receiver)
-ChatRouter.post("/create", chatControllerObj.create);
+/**
+ * @description create chat between two users using "referralId" as "id" attribute of "Chat" table, 
+ * chat members as senderId(user id of sender) and receiverId(user id of receiver)
+ * 
+ * @authorisedRoles ["loggedInUser"]
+ */
+ChatRouter.post("/create", chatControllerObj.createChatMembers);
 
 // export chat router
 export default ChatRouter;

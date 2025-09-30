@@ -1,3 +1,7 @@
+
+// Import dynamoose types
+import { ObjectType } from "dynamoose/dist/General";
+
 // Import configs
 import APP_CONSTANTS from "../configs/constants.config";
 
@@ -49,7 +53,7 @@ class RequestHelper {
         const obj = { ac: "h" };
         const jsonString = JSON.stringify(obj);
         const base64String = Buffer.from(jsonString).toString('base64');
-        console.log(base64String); // Output: eyJhYyI6ImgifQ==
+        global.logger.info(base64String); // Output: eyJhYyI6ImgifQ==
       
       Note: 
         1.If lastKey is not in base64 format, then "decodedStr" variable will get as undefined 
@@ -66,14 +70,14 @@ class RequestHelper {
             "timeStamp": "2024-08-26T11:32:36.547Z"
           }
       */
-      let decodedStr = base64EncodeStrToLastKey(filterOptions.lastKey); // decoding base64 string to original value(possibly object)
+      let decodedStr: ObjectType | undefined = base64EncodeStrToLastKey(filterOptions.lastKey); // decoding base64 string to original value(possibly object)
       if (decodedStr) {
         lastKey = decodedStr;
       }
     }
 
     // If sortOrder is undefined, then set sortOrder to descending order by default
-    if (!filterOptions?.sortOrder) {
+    if (!filterOptions?.sortOrder && filterOptions.lastKey !== "undefined") {
       filterOptions.sortOrder = SortOrderTypeEnum.DESCENDING;
     }
 

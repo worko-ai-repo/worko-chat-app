@@ -23,26 +23,30 @@ class ChatService {
   async getChatMembersById(
     referralId: string
   ): Promise<QueryResponse<DbChatDto>> {
-    console.log("getChatMembersById in [service]");
+    global.logger.info("getChatMembersById in [service]", {
+      referralId: referralId,
+      methodName: this.getChatMembersById.name,
+    });
 
     // get chat members by referralId
     return chatDaoObj.getChatMembersById(referralId);
   }
 
   /**
-   * create
+   * createChatMembers
    *
    * Creates a new chat members record in the Chat table.
    *
    * @param {ChatMembersDto} members - The members of the chat.
    * @return {Promise<DbChatDto>} A promise that resolves to the created chat model.
    */
-  async create(members: ChatMembersDto): Promise<DbChatDto> {
-    console.log("create in [service]");
-    console.log("members in create [service]:-", members);
+  async createChatMembers(members: ChatMembersDto): Promise<DbChatDto> {
+    global.logger.info("create in [service]", {
+      methodName: this.createChatMembers.name,
+    });
 
     // create new chat record
-    return chatDaoObj.create(members);
+    return chatDaoObj.createChatMembers(members);
   }
 }
 

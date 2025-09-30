@@ -9,7 +9,7 @@ import { ChatModel, DbChatDto } from "../db/models/Chat.model";
 
 // chat dao class with chat related methods like creating new chat between two users, deleting chat between two users etc..
 class ChatDao {
-  ModelName = "Chat";
+  modelName = "Chat";
   partitionKey = "CHAT#";
   sortKey = "ID#{id}";
 
@@ -24,57 +24,38 @@ class ChatDao {
   async getChatMembersById(
     referralId: string
   ): Promise<QueryResponse<DbChatDto>> {
-    console.log("getChatMembersById in [dao]");
-    console.log("referralId in getChatMembersById [dao]:-", referralId);
-
-    // replace id in sortKey with referralId
-    const SK = this.sortKey.replace("{id}", referralId);
-    console.log("SK in getChatMembersById [dao]:-", SK);
+    global.logger.info("getChatMembersById in [dao]", {
+      methodName: this.getChatMembersById.name,
+    });
 
     // get chat members
     return ChatModel.query("PK")
       .eq(this.partitionKey)
       .where("SK")
-      .eq(SK)
+      .eq(this.sortKey.strtr({"{id}": referralId}))
       .exec();
   }
 
   /**
-   * create
+   * createChatMembers
    *
    * Creates a new chat record in the database.
    *
    * @param {ChatMembersDto} members - The members of the chat.
    * @return {Promise<DbChatDto>} A promise that resolves to the created chat model.
    */
-  async create(members: ChatMembersDto): Promise<DbChatDto> {
-    console.log("create in [dao]");
-
-    console.log("members in create [dao]:-", members);
+  async createChatMembers(members: ChatMembersDto): Promise<DbChatDto> {
+    global.logger.info("create in [dao]");
 
     // get referralId from members
-    const referralId = members.referralId;
-    console.log("referralId in create [dao]:-", referralId);
-
-    // get partitionKey
-    const PK = this.partitionKey;
-    console.log("PK in create [dao]:-", PK);
-
-    // replace id in sortKey with referralId
-    const SK = this.sortKey.replace("{id}", referralId);
-    console.log("SK in create [dao]:-", SK);
-
-    // destructure senderId and receiverId from members
-    const { userIdOne, userIdTwo } = members;
-    console.log("userIdOne in create [dao]:-", userIdOne);
-    console.log("userIdTwo in create [dao]:-", userIdTwo);
+    const referralId: string = members.referralId;
 
     // create new chat record
     return ChatModel.create({
-      PK,
-      SK,
+      PK: this.partitionKey,
+      SK: this.sortKey.strtr({ "{id}": referralId }),
       id: referralId,
-      members: [userIdOne, userIdTwo],
+      members: [members.userIdOne, members.userIdTwo],
     });
   }
 }

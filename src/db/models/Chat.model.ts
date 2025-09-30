@@ -18,7 +18,7 @@ const chatSchema = new dynamoose.Schema(
   {
     ...DB_CONSTANTS.WORKO_PK_SK,
     id: { type: String, required: true }, // referral id will be id attribute of Chat table
-    members: { type: Array, schema: [String], required: true }, // user ids will be an array of strings
+    members: { type: Array, schema: String, required: true }, // user ids will be an array of strings
   },
   {
     ...DB_CONSTANTS.WORKO_MODEL_SCHEMA_OPTIONS,

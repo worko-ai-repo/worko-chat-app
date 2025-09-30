@@ -1,9 +1,6 @@
 // import DTOs
 import { RecordListingFilterOptions, RecordListingFilterRequestDTO } from "./Common.dto";
 
-// import enums
-import { RouteKeyAction } from "../enums/RouteKeyAction.enum";
-
 /**
  * GetMessagesListingFilterOptions
  *
@@ -12,7 +9,6 @@ import { RouteKeyAction } from "../enums/RouteKeyAction.enum";
 export interface GetMessagesListingFilterOptions extends RecordListingFilterOptions {
   // Represents the filter options for querying get messages.
   // Should be used when filtering get messages records.
-  action: RouteKeyAction.getMessages;
   referralId: string;
   senderId: string;
 }
@@ -23,7 +19,6 @@ export interface GetMessagesListingFilterOptions extends RecordListingFilterOpti
 export interface GetMessagesListingFilterRequestDTO extends RecordListingFilterRequestDTO {
   // Represents the filter request DTO for querying get messages.
   // Should be used when requesting to filter get messages records.
-  action: RouteKeyAction.getMessages;
   referralId: string;
   senderId: string;
 }

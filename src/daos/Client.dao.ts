@@ -6,7 +6,7 @@ import { ClientModel, DbClientDto } from "../db/models/Client.model";
 
 // client dao class that implements the CRUD operations for clients
 class ClientDao {
-  ModelName = "Client";
+  modelName = "Client";
   partitionKey = "CHAT#ID#{chatId}";
   sortKey = "CONN#ID#{connectionId}";
 
@@ -28,12 +28,14 @@ class ClientDao {
     userId: string,
     referralId: string
   ): Promise<DbClientDto> {
+    global.logger.info("createClient in [dao]");
 
+    // create a new client
     return ClientModel.create({
-      PK: this.partitionKey.replace("{chatId}", referralId),
-      SK: this.sortKey.replace("{connectionId}", connectionId),
+      PK: this.partitionKey.strtr({"{chatId}": referralId}),
+      SK: this.sortKey.strtr({"{connectionId}": connectionId}),
       GSI1PK: this.GSI1PK,
-      GSI1SK: this.GSI1SK.replace("{connectionId}", connectionId),
+      GSI1SK: this.GSI1SK.strtr({"{connectionId}": connectionId}),
       connectionId,
       userId,
     });
@@ -52,12 +54,12 @@ class ClientDao {
     connectionId: string,
     referralId: string
   ): Promise<QueryResponse<DbClientDto>> {
-    console.log("getClient in [dao]");
+    global.logger.info("getClient in [dao]");
 
     return ClientModel.query("PK")
-      .eq(this.partitionKey.replace("{chatId}", referralId))
+      .eq(this.partitionKey.strtr({"{chatId}": referralId}))
       .where("SK")
-      .eq(this.sortKey.replace("{connectionId}", connectionId))
+      .eq(this.sortKey.strtr({"{connectionId}": connectionId}))
       .exec();
   }
 
@@ -69,11 +71,11 @@ class ClientDao {
    * @param {DbClientDto} retrivedClient - The client object to be deleted.
    */
   async deleteClient(retrivedClient: DbClientDto) {
-    console.log("deleteClient in [dao]");
+    global.logger.info("deleteClient in [dao]");
 
-    /*
-    Refer Below docs for how to delete Item in dynamodb using dynamoose:-
-    https://dynamoosejs.com/guide/Item#itemdeletecallback
+    /**
+    * Refer Below docs for how to delete Item in dynamodb using dynamoose:-
+    * @see https://dynamoosejs.com/guide/Item#itemdeletecallback
     */
     return retrivedClient.delete();
   }
@@ -89,13 +91,10 @@ class ClientDao {
   async getAllConnectionsByChatId(
     referralId: string
   ): Promise<QueryResponse<DbClientDto>> {
-    console.log("getAllConnections in [dao]");
-
-    console.log("referralId:", referralId);
-    console.log("typeof referralId:", typeof referralId);
+    global.logger.info("getAllConnections in [dao]");
 
     return ClientModel.query("PK")
-      .eq(this.partitionKey.replace("{chatId}", referralId))
+      .eq(this.partitionKey.strtr({"{chatId}": referralId}))
       .where("SK")
       .beginsWith("CONN#ID#")
       .exec();
@@ -103,7 +102,7 @@ class ClientDao {
 
   /**
    * getClientByConnectionId
-   * 
+   *
    * Retrieves a client record from the database based on the provided connection ID.
    *
    * @param {string} connectionId - The connection ID of the client.
@@ -112,12 +111,12 @@ class ClientDao {
   async getClientByConnectionId(
     connectionId: string
   ): Promise<QueryResponse<DbClientDto>> {
-    console.log("getClientByConnectionId in [dao]");
+    global.logger.info("getClientByConnectionId in [dao]");
 
     return ClientModel.query("GSI1PK")
       .eq(this.GSI1PK)
       .where("GSI1SK")
-      .eq(this.GSI1SK.replace("{connectionId}", connectionId))
+      .eq(this.GSI1SK.strtr({"{connectionId}": connectionId}))
       .exec();
   }
 }

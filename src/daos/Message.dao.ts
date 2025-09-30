@@ -1,9 +1,6 @@
 // load dynamoose library
 import { QueryResponse } from "dynamoose/dist/ItemRetriever";
 
-// import random id generator
-import { ulid } from "ulid";
-
 // import dtos
 import { NewMessageDto } from "../dtos/SendMessage.dto";
 import { GetMessagesListingFilterOptions } from "../dtos/GetMessages.dto";
@@ -14,8 +11,12 @@ import { SortOrderTypeEnum } from "../enums/Common.enum";
 // load models
 import { DbMessageDto, MessageModel } from "../db/models/Message.model";
 
+// load services
+import UlidService from "../services/Ulid.service";
+
+// message dao class with message related methods like creating new message, deleting message etc..
 class MessageDao {
-  ModelName = "Message";
+  modelName = "Message";
   partitionKey = "CHAT#ID#{chatId}";
   sortKey = "MSG#ID#{id}";
 
@@ -28,22 +29,15 @@ class MessageDao {
    * @return {Promise<DbMessageDto>} A promise that resolves to the newly created message model.
    */
   async addMessage(newMessageBody: NewMessageDto): Promise<DbMessageDto> {
-    console.log("addMessage in [dao]");
-    const id = ulid();
+    global.logger.info("addMessage in [dao]");
 
-    console.log("newMessageBody:", newMessageBody);
-    console.log("typeof newMessageBody:", typeof newMessageBody);
-    console.log("newMessageBody.referralId:", newMessageBody.referralId);
-    console.log(
-      "typeof newMessageBody.referralId:",
-      typeof newMessageBody.referralId
-    );
-    console.log("newMessageBody.text:", newMessageBody.text);
-    console.log("newMessage.senderId:", newMessageBody.senderId);
+    // generate random id
+    const id = UlidService.getUlidId();
 
+    // create new message record in Message model
     return MessageModel.create({
-      PK: this.partitionKey.replace("{chatId}", newMessageBody.referralId),
-      SK: this.sortKey.replace("{id}", id),
+      PK: this.partitionKey.strtr({"{chatId}": newMessageBody.referralId}),
+      SK: this.sortKey.strtr({"{id}": id}),
       id: id,
       chatId: newMessageBody.referralId,
       text: newMessageBody.text,
@@ -51,11 +45,21 @@ class MessageDao {
     });
   }
 
+  /**
+   * getMessages
+   *
+   * Retrieves messages from the database based on the provided chat referral ID and filter options.
+   *
+   * @param {GetMessagesListingFilterOptions} getMessagesData - The filter options to retrieve messages.
+   * @return {Promise<QueryResponse<DbMessageDto>>} A promise that resolves to the query response containing the messages.
+   */
   async getMessages(
     getMessagesData: GetMessagesListingFilterOptions
   ): Promise<QueryResponse<DbMessageDto>> {
+    global.logger.info("getMessages in [dao]");
+
     let query = MessageModel.query("PK")
-      .eq(this.partitionKey.replace("{chatId}", getMessagesData.referralId))
+      .eq(this.partitionKey.strtr({"{chatId}": getMessagesData.referralId}))
       .where("SK")
       .beginsWith("MSG#ID#");
 
@@ -79,5 +83,8 @@ class MessageDao {
   }
 }
 
+// create an instance of MessageDao
 const messageDaoObj = new MessageDao();
+
+// export MessageDao class and messageDaoObj instance object
 export { MessageDao, messageDaoObj };
