@@ -50,7 +50,7 @@ import HttpStatusCode from "./utils/http-codes.util";
  */
 export const ChatHandler = async (event: APIGatewayProxyEvent): Promise<APIGatewayProxyResult> => {
   try {
-    global.logger.info("[ChatHandler]");
+    global.logger.info("ChatHandler");
 
     /**
      * NOTE:- If any error occurs related to the websocket,

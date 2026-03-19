@@ -1,0 +1,323 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Worko Chat App
+
+Parameters:
+  Stage:
+    Type: String
+
+  AppAwsAccountId:
+    Type: String
+
+  AppSlsRegion:
+    Type: String
+
+  AppAwsDynamoDbTableName:
+    Type: String
+
+  WssApiGatewayEndpoint:
+    Type: String
+
+############################################################
+# GLOBALS
+############################################################
+
+Globals:
+  Function:
+    Runtime: nodejs24.x
+    MemorySize: 512
+    Timeout: 10
+    Environment:
+      Variables:
+        APP_SLS_REGION: !Ref AppSlsRegion
+        APP_AWS_ACCOUNT_ID: !Ref AppAwsAccountId
+        APP_AWS_DYNAMODB_TABLE_NAME: !Ref AppAwsDynamoDbTableName
+        WSSAPIGATEWAYENDPOINT: !Ref WssApiGatewayEndpoint # ws://localhost:3001 for local
+        APP_LOGGER_LOG_FORMAT: "json"
+        STAGE: !Ref Stage
+
+############################################################
+# IAM ROLE
+############################################################
+
+Resources:
+
+  WorkoChatAppExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub "worko-chat-api-${Stage}-${AppSlsRegion}-lambdaRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+      Policies:
+        - PolicyName: DynamoDBAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+
+              # DynamoDB permissions
+              - Effect: Allow
+                Action:
+                  - dynamodb:DescribeTable
+                  - dynamodb:Query
+                  - dynamodb:GetItem
+                  - dynamodb:PutItem
+                  - dynamodb:UpdateItem
+                  - dynamodb:DeleteItem
+                  - dynamodb:BatchGetItem
+                  - dynamodb:BatchWriteItem
+                Resource:
+                  - !Sub "arn:aws:dynamodb:${AppSlsRegion}:${AppAwsAccountId}:table/worko"
+                  - !Sub "arn:aws:dynamodb:${AppSlsRegion}:${AppAwsAccountId}:table/worko/index/GSI1"
+                  - !Sub "arn:aws:dynamodb:${AppSlsRegion}:${AppAwsAccountId}:table/worko-chat"
+                  - !Sub "arn:aws:dynamodb:${AppSlsRegion}:${AppAwsAccountId}:table/worko-chat/index/GSI1"
+
+              # WebSocket ManageConnections permission
+              - Effect: Allow
+                Action:
+                  - execute-api:ManageConnections
+                Resource:
+                  # @note: if any error occur for below arn, please update it to "arn:aws:execute-api:*:*:*/@connections/*"
+                  - !Sub "arn:aws:execute-api:${AppSlsRegion}:${AppAwsAccountId}:*/*"
+
+############################################################
+# REST API
+############################################################
+
+  WorkoChatRestApi:
+    Type: AWS::Serverless::Api
+    Properties:
+      Name: !Sub "${Stage}-worko-chat-api"
+      StageName: !Ref Stage
+      Cors:
+        AllowMethods: "'*'"
+        AllowHeaders: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token,X-Amz-User-Agent'"
+        AllowOrigin: "'*'"
+        AllowCredentials: false
+      Auth:
+        DefaultAuthorizer: WorkoAuthorizer
+        AddDefaultAuthorizerToCorsPreflight: false
+        Authorizers:
+          WorkoAuthorizer:
+            FunctionPayloadType: REQUEST
+            FunctionArn: !Sub "arn:aws:lambda:${AppSlsRegion}:${AppAwsAccountId}:function:worko-auth"
+            Identity:
+              Headers:
+                - Authorization
+              ReauthorizeEvery: 0
+
+############################################################
+# REST API LAMBDA
+############################################################
+
+  ChatApiHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "worko-chat-api-${Stage}-chatApiHandler"
+      Timeout: 30
+      CodeUri: ./
+      Handler: src/app.handler
+      Role: !GetAtt WorkoChatAppExecutionRole.Arn
+      Events:
+        # Explicit Preflight Root Route (NO Authorizer)
+        PreflightRoot:
+          Type: Api
+          Properties:
+            Path: /
+            Method: OPTIONS
+            RestApiId: !Ref WorkoChatRestApi
+            Auth:
+              Authorizer: NONE
+        ApiGateway:
+          Type: Api
+          Properties:
+            Path: /{proxy+}
+            Method: ANY
+            RestApiId: !Ref WorkoChatRestApi
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "node24"
+        Sourcemap: false
+        EntryPoints:
+          - src/app.ts
+        External:
+          - "@aws-sdk/*"
+
+############################################################
+# WEBSOCKET API
+############################################################
+
+  WorkoChatWebSocketApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: !Sub "${Stage}-worko-chat-api-websockets"
+      ProtocolType: WEBSOCKET
+      RouteSelectionExpression: "$request.body.action"
+
+  WorkoChatWebSocketStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      StageName: !Ref Stage
+      ApiId: !Ref WorkoChatWebSocketApi
+      AutoDeploy: true
+
+############################################################
+# WEBSOCKET LAMBDA
+############################################################
+
+  WebSocketHandler:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub "worko-chat-api-${Stage}-websocketHandler"
+      CodeUri: ./
+      Handler: src/chat.ChatHandler
+      Role: !GetAtt WorkoChatAppExecutionRole.Arn
+      Runtime: nodejs24.x
+      Timeout: 30
+    Metadata:
+      BuildMethod: esbuild
+      BuildProperties:
+        Minify: true
+        Target: "node24"
+        Sourcemap: false
+        EntryPoints:
+          - src/chat.ts
+        External:
+          - "@aws-sdk/*"
+
+############################################################
+# WEBSOCKET PERMISSIONS
+# @description: This permission is required to allow the WebSocket API to invoke the WebSocket Lambda
+############################################################
+
+  WebSocketLambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+      FunctionName: !Ref WebSocketHandler
+      Principal: apigateway.amazonaws.com
+
+      # Restrict invocation only from this WebSocket API
+      SourceArn: !Sub "arn:aws:execute-api:${AppSlsRegion}:${AppAwsAccountId}:${WorkoChatWebSocketApi}/*"
+
+
+  WebSocketAuthorizerPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      Action: lambda:InvokeFunction
+
+      # External auth lambda
+      FunctionName: !Sub "arn:aws:lambda:${AppSlsRegion}:${AppAwsAccountId}:function:worko-auth"
+
+      Principal: apigateway.amazonaws.com
+
+      # Restrict invocation only from this WebSocket API
+      SourceArn: !Sub "arn:aws:execute-api:${AppSlsRegion}:${AppAwsAccountId}:${WorkoChatWebSocketApi}/*"
+
+############################################################
+# WEBSOCKET INTEGRATION
+# @description: This integration is required to connect the WebSocket API to the WebSocket Lambda
+############################################################
+
+  WebSocketIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref WorkoChatWebSocketApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri:
+        Fn::Sub: arn:aws:apigateway:${AppSlsRegion}:lambda:path/2015-03-31/functions/${WebSocketHandler.Arn}/invocations
+      IntegrationMethod: POST
+
+############################################################
+# WEBSOCKET AUTHORIZER
+############################################################
+
+  WorkoWebSocketAuthorizer:
+    Type: AWS::ApiGatewayV2::Authorizer
+    Properties:
+      Name: WorkoWebSocketAuthorizer
+      ApiId: !Ref WorkoChatWebSocketApi
+      AuthorizerType: REQUEST
+
+      # Important: must be single-line
+      AuthorizerUri:
+        Fn::Sub: arn:aws:apigateway:${AppSlsRegion}:lambda:path/2015-03-31/functions/arn:aws:lambda:${AppSlsRegion}:${AppAwsAccountId}:function:worko-auth/invocations
+
+      IdentitySource:
+        - route.request.querystring.Authorization
+
+############################################################
+# WEBSOCKET ROUTES
+############################################################
+
+  ConnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WorkoChatWebSocketApi
+      RouteKey: "$connect"
+      AuthorizationType: CUSTOM
+      AuthorizerId: !Ref WorkoWebSocketAuthorizer
+      Target: !Sub "integrations/${WebSocketIntegration}"
+
+  DisconnectRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WorkoChatWebSocketApi
+      RouteKey: "$disconnect"
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WebSocketIntegration}"
+
+  SendMessageRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WorkoChatWebSocketApi
+      RouteKey: "sendMessage"
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WebSocketIntegration}"
+
+  GetMessagesRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WorkoChatWebSocketApi
+      RouteKey: "getMessages"
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WebSocketIntegration}"
+
+  DefaultRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref WorkoChatWebSocketApi
+      RouteKey: "$default"
+      AuthorizationType: NONE
+      Target: !Sub "integrations/${WebSocketIntegration}"
+
+############################################################
+# OUTPUTS
+############################################################
+
+Outputs:
+
+  WorkoChatRestApi:
+    Description: REST API endpoint
+    Value: !Sub "https://${WorkoChatRestApi}.execute-api.${AppSlsRegion}.amazonaws.com/${Stage}/"
+
+  WorkoChatWebSocketUrl:
+    Description: WebSocket endpoint
+    Value: !Sub "wss://${WorkoChatWebSocketApi}.execute-api.${AppSlsRegion}.amazonaws.com/${Stage}"
+
+  WorkoChatWebSocketApiId:
+    Description: WebSocket API ID
+    Value: !Ref WorkoChatWebSocketApi
+
+  WebSocketHandlerLambda:
+    Description: WebSocket Lambda ARN
+    Value: !GetAtt WebSocketHandler.Arn

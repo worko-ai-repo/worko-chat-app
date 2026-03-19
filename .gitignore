@@ -1,7 +1,13 @@
-/dist
+.aws-sam
+
+.vscode/
 
 /node_modules
 
 .webpack
 
+dist
+
 .env
+
+.serverless

@@ -1,0 +1,31 @@
+version = 0.1
+
+[dev.deploy.parameters]
+stack_name = "worko-chat-api-dev"
+resolve_s3 = true
+s3_prefix = "worko-chat-api-dev"
+region = "ap-south-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+   "Stage=dev",
+   "AppSlsRegion=ap-south-1",
+   "WssApiGatewayEndpoint=https://chatws.dev.worko.work",
+   "AppAwsDynamoDbTableName=worko-chat",
+   "AppAwsAccountId=211125353899",
+]
+
+[prod.deploy.parameters]
+stack_name = "worko-chat-api-prod"
+s3_prefix = "worko-chat-api-prod"
+resolve_s3 = true
+region = "ap-south-1"
+confirm_changeset = false
+capabilities = "CAPABILITY_NAMED_IAM"
+parameter_overrides = [
+   "Stage=prod",
+   "AppSlsRegion=ap-south-1",
+   "WssApiGatewayEndpoint=https://chatws.worko.ai",
+   "AppAwsDynamoDbTableName=worko-chat",
+   "AppAwsAccountId=211125595046",
+]
