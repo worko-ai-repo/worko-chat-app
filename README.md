@@ -1,23 +1,28 @@
+
+# About The Project
+It is a NodeJs based serverless microservice. It serves/facilitates WORKO CHAT APP APIS.
+
+## Prerequisites
+What softwares you need to install for development.
+1.  NodeJs with NPM support
+2.  AWS CLI
+3.  AWS SAM CLI
+4.  Docker (required by SAM CLI to simulate Lambda locally)
+
+### Install Docker
+SAM CLI uses Docker to run Lambda functions locally. Download and install Docker Desktop from https://www.docker.com/products/docker-desktop and make sure it is running before using `sam local` commands.
+
+## Setup git repository on your local machine
+```sh
+# Switch to `dev` branch (Note: `dev` branch is development branch)
+$ git checkout dev
+
+# Create a feature branch for the task which you are working, for example you are working on `todo-list` application then create branch from `dev` with below name:
+$ git checkout -b feature/todo-list dev
+```
+
 ```sh
 npm install
-```
-
-## Local Environment Variables
-```sh
-# Copy the "environments/.env.local" content into ".env" file
-$ cp environments/.env.local .env
-```
-
-## Dev Environment Variables
-```sh
-# Copy the "environments/.env.dev" content into ".env" file
-$ cp environments/.env.dev .env
-```
-
-## Prod Environment Variables
-```sh
-# Copy the "environments/.env.prod" content into ".env" file
-$ cp environments/.env.prod .env
 ```
 
 # TEST IN LOCAL PC:-
@@ -25,8 +30,33 @@ $ cp environments/.env.prod .env
 # STEP 1:-
 # below command will run both express and websocket server for "local" stage only
 ```sh
-npm run deploy-offline
+# Note: Open `docker` before running below command
+npm run local
 ```
+
+This will clean the previous build (`.aws-sam`), run a fresh SAM build using esbuild, and start the API locally via `sam local start-api`.
+
+Alternatively, use nodemon for auto-restart on file changes:
+```sh
+$ npm run local-with-nodemon
+```
+
+# AWS CLI Configuration
+We need to set up the AWS CLI with multiple profiles in order to execute SAM commands for different environments using the corresponding profile.
+
+First, install the AWS CLI from https://docs.aws.amazon.com/cli/latest/userguide/install-cliv2.html, then run:
+
+```sh
+$ aws configure
+```
+Get the required credentials for the profiles from the Team. Use the below commands and follow the instructions to set up the profiles.
+
+Each command will prompt for:
+- `AWS Access Key ID`
+- `AWS Secret Access Key`
+- `Default region name` → `ap-south-1`
+- `Default output format` → `json`
+
 
 # STEP 2:-
 # [POST] First create chat between two users using REST API(after running above express server):-
@@ -131,3 +161,27 @@ Client (WebSocket)  <----->  API Gateway (WebSocket API)  <----->  Lambda Functi
 Create a WebSocket API in the AWS Management Console.
 Define the routes: $connect, $disconnect, and a custom route like sendMessage.
 For each route, configure an integration with AWS Lambda.
+
+
+# Deployment on Higher Environments (Prod)
+
+If you want to deploy the application on the cloud for testing or for live users, please follow the instructions provided below.
+
+The `samconfig.toml` file contains pre-configured deployment parameters for each environment (`dev`, `prod`).
+
+In the example below, we will demonstrate the deployment process for the `prod` environment.
+
+```sh
+$ npm i
+$ npm run clean
+$ npm run build
+$ sam deploy --config-env prod --force-upload
+```
+
+# Branching
+Branch creation flow:
+`main` -> `dev` -> `feature/<task-name>`
+
+Branch merging flow:
+`main` <- `dev` <- `feature/<task-name>`
+
